@@ -1,21 +1,20 @@
+'use client'
+
 import { redirect } from 'next/navigation'
-import React from 'react'
+import React, { useEffect } from 'react'
 import AuthTabs from '@/app/components/auth/AuthTabs'
-import { authClient } from '@/app/lib/auth-client'
+import { authClient } from '@/lib/auth-client'
+import { useRouter } from 'next/navigation'
 
-const AuthenticatePage = async () => {
-	const { data: session } = await authClient.getSession()
+const AuthenticatePage = () => {
+  const router = useRouter();
+  const { data: session, isPending, refetch } = authClient.useSession() || { data: null, isPending: false, refetch: () => {} };
 
-  if (session?.user) {
-    console.log(session.user)
-    if (session.user.role === "admin") {
-      redirect('/dashboard')
-    } else {
-      // Redirect to a default page for non-admin authenticated users
-      redirect('/profile')
+  useEffect(() => {
+    if (!isPending && session) {
+      router.push("/dashboard");
     }
-  }
-
+  }, [session, isPending, router]);
   // If not authenticated, render the AuthTabs component
   return <AuthTabs />
 }

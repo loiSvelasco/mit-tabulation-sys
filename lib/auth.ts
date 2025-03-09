@@ -1,5 +1,4 @@
 import { betterAuth } from "better-auth";
-import { passkey } from "better-auth/plugins/passkey";
 import { admin } from "better-auth/plugins/admin";
 import { createPool } from "mysql2/promise";
  
@@ -20,7 +19,6 @@ export const auth = betterAuth({
     },
 
 		plugins: [
-      passkey(),
 			admin(),
     ],
 

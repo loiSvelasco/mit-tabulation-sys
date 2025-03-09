@@ -5,16 +5,46 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Key } from "lucide-react";
-import { signIn } from "@/app/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const router = useRouter();
+  // const { data: session, isPending, refetch } = authClient.useSession() || { data: null, isPending: false, refetch: () => {} };
+
+  // useEffect(() => {
+  //   if (!isPending && session) {
+  //     router.push("/dashboard");
+  //   }
+  // }, [session, isPending, router]);
+
+  const handleSignIn = async () => {
+    setLoading(true);
+
+    await authClient.signIn.email({
+      email,
+      password,
+      fetchOptions: {
+        onResponse: () => setLoading(false),
+        onRequest: () => setLoading(true),
+        onError: () => {
+          toast.error("Invalid credentials.");
+          setLoading(false);
+        },
+        onSuccess: async () => {
+          router.push("/dashboard");
+        },
+      },
+    });
+  };
 
   return (
     <Card className="max-w-md">
@@ -33,9 +63,7 @@ export default function SignIn() {
                 type="email"
                 placeholder="m@example.com"
                 required
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 value={email}
               />
             </div>
@@ -43,12 +71,9 @@ export default function SignIn() {
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
-                <Link
-                    href="#"
-                    className="ml-auto inline-block text-sm underline"
-                  >
+                <Link href="#" className="ml-auto inline-block text-sm underline">
                     Forgot your password?
-                  </Link>
+                </Link>
               </div>
 
               <Input
@@ -71,16 +96,11 @@ export default function SignIn() {
                 <Label htmlFor="remember">Remember me</Label>
               </div>
 
-          
-
            <Button
               type="submit"
               className="w-full"
               disabled={loading}
-              onClick={async () => {
-              await signIn.email({ email, password, });
-              setLoading(true);
-              }}
+              onClick={handleSignIn}
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -88,22 +108,8 @@ export default function SignIn() {
                 "Login"
               )}
             </Button>
-
-          <Button
-              variant="secondary"
-              className="gap-2"
-              onClick={async () => {
-                await signIn.passkey();
-              }}
-            >
-              <Key size={16} />
-              Sign-in with Passkey
-            </Button>
-
-          
         </div>
       </CardContent>
-      
     </Card>
   );
 }
