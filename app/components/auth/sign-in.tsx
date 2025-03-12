@@ -40,6 +40,7 @@ export default function SignIn() {
           setLoading(false);
         },
         onSuccess: async () => {
+          toast.success("Logged in successfully.")
           router.push("/dashboard");
         },
       },

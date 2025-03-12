@@ -4,6 +4,7 @@ import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const Navbar = () => {
 	const [isdark, setIsdark] = useState(
@@ -18,8 +19,17 @@ const Navbar = () => {
 	const router = useRouter();
 
 	const handleLogout = async () => {
-		await authClient.signOut();
-		router.replace("/auth"); // Ensure correct redirection
+		await authClient.signOut({
+			fetchOptions: {
+				onSuccess: () => {
+					setTimeout(() => {
+						router.replace("/auth");
+					}, 2000);
+				}
+			}
+		});
+		toast.success("Logged out.")
+		// router.replace("/auth"); // Ensure correct redirection
 	};
 
 	// if (isPending) {
