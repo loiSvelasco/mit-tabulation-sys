@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import React, { useEffect } from 'react'
-import AuthTabs from '@/app/components/auth/AuthTabs'
+import AuthTabs from '@/components/auth/AuthTabs'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 

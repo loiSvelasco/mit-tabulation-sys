@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { EyeIcon, EyeOffIcon, RefreshCcwIcon, Trash2Icon, EditIcon, UserPlus, Users, Plus } from "lucide-react";
+import { EyeIcon, EyeOffIcon, RefreshCcwIcon, Trash2Icon, EditIcon, UserPlus, Plus, SaveIcon, XIcon } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 const JudgeScoring = () => {
@@ -13,18 +13,52 @@ const JudgeScoring = () => {
     contestants,
     judges,
     addContestant,
+    updateContestantName,
     removeContestant,
     addJudge,
     removeJudge,
     updateJudgeAccessCode,
+    updateJudgeName,
     updateContestantSegment,
   } = useCompetitionStore();
 
   const [contestantName, setContestantName] = useState("");
-	const [contestantGender, setContestantGender] = useState<"Male" | "Female">("Female"); // ✅ Explicit type
+	const [contestantGender, setContestantGender] = useState<"Male" | "Female">("Female");
+  const [editingContestant, setEditingContestant] = useState<{contestantId: string; name:string} | null>(null);
+
+  const handleEditClickContestant = (contestantId: string, currentName: string) => {
+    setEditingContestant({ contestantId: contestantId, name: currentName });
+  }
+  
+  const handleSaveClickContestant = () => {
+    if (editingContestant) {
+      updateContestantName(editingContestant.contestantId, editingContestant.name);
+      setEditingContestant(null);
+    }
+  };
+
+  const handleCancelClickContestant = () => {
+    setEditingContestant(null);
+  };
 
   const [judgeName, setJudgeName] = useState("");
   const [showAccessCodes, setShowAccessCodes] = useState<{ [key: string]: boolean }>({});
+  const [editingJudge, setEditingJudge] = useState<{ id: string; name: string} | null>(null);
+
+  const handleEditClickJudge = (judgeId: string, currentName: string) => {
+    setEditingJudge({ id: judgeId, name: currentName });
+  }
+
+  const handleSaveClickJudge = () => {
+    if (editingJudge) {
+      updateJudgeName(editingJudge.id, editingJudge.name);
+      setEditingJudge(null);
+    }
+  };
+
+  const handleCancelClickJudge = () => {
+    setEditingJudge(null);
+  };
 
   const handleAddContestant = () => {
 		if (!contestantName.trim()) return;
@@ -54,7 +88,7 @@ const JudgeScoring = () => {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* Contestants Management */}
       <Card>
         <CardHeader>
@@ -91,6 +125,7 @@ const JudgeScoring = () => {
                   <TableHead>#</TableHead>
                   <TableHead>Name</TableHead>
                   {competitionSettings.separateRankingByGender && <TableHead>Gender</TableHead>}
+                  <TableHead>Segment</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -98,7 +133,16 @@ const JudgeScoring = () => {
                 {contestants.map((contestant) => (
                   <TableRow key={contestant.id} className="border-t">
                     <TableCell>{contestant.id}</TableCell>
-                    <TableCell>{contestant.name}</TableCell>
+                    <TableCell>
+                      {editingContestant?.contestantId === contestant.id ? (
+                        <Input
+                        value={editingContestant.name}
+                        onChange={(e) =>
+                          setEditingContestant((prev) => prev && { ...prev, name: e.target.value })
+                        }
+                      />
+                      ) : contestant.name }
+                    </TableCell>
                     {competitionSettings.separateRankingByGender && <TableCell>{contestant.gender}</TableCell>}
                     
                     {/* Segment Selection Dropdown */}
@@ -121,6 +165,22 @@ const JudgeScoring = () => {
                     </TableCell>
 
                     <TableCell>
+                    {editingContestant?.contestantId === contestant.id ? (
+                        <>
+                          <Button size="icon" variant="secondary" onClick={handleSaveClickContestant}>
+                            <SaveIcon size={16} />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={handleCancelClickContestant}>
+                            <XIcon size={16} />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => handleEditClickContestant(contestant.id, contestant.name)}>
+                            <EditIcon size={16} />
+                          </Button>
+                        </>
+                      ) }
                       <Button size="icon" variant="destructive" onClick={() => removeContestant(contestant.id)}>
                         <Trash2Icon size={16} />
                       </Button>
@@ -172,7 +232,16 @@ const JudgeScoring = () => {
               <TableBody>
                 {judges.map((judge) => (
                   <TableRow key={judge.id} className="border-t">
-                    <TableCell>{judge.name}</TableCell>
+                    <TableCell>
+                      {editingJudge?.id === judge.id ? (
+                        <Input
+                        value={editingJudge.name}
+                        onChange={(e) =>
+                          setEditingJudge((prev) => prev && { ...prev, name: e.target.value })
+                        }
+                      />
+                      ) : judge.name }
+                    </TableCell>
                     <TableCell className="flex items-center gap-2">
                       <span className="font-mono">
                         {showAccessCodes[judge.id] ? judge.accessCode : "••••••"}
@@ -193,6 +262,22 @@ const JudgeScoring = () => {
                       </Button>
                     </TableCell>
                     <TableCell>
+                      {editingJudge?.id === judge.id ? (
+                        <>
+                          <Button size="icon" variant="secondary" onClick={handleSaveClickJudge}>
+                            <SaveIcon size={16} />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={handleCancelClickJudge}>
+                            <XIcon size={16} />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => handleEditClickJudge(judge.id, judge.name)}>
+                            <EditIcon size={16} />
+                          </Button>
+                        </>
+                      ) }
                       <Button
                         size="icon"
                         variant="destructive"

@@ -104,7 +104,7 @@ const CompetitionSettings = () => {
           {competitionSettings.segments.map((segment) => (
             <TabsContent key={segment.id} value={segment.id}>
               <div className="mt-4">
-              <Button onClick={() => removeSegment(segment.id)} className="mb-4 float-right" variant="destructive"><Trash2 /> Remove Segment</Button>
+              <Button onClick={() => removeSegment(segment.id)} className="mb-4 float-right" variant="ghost"><Trash2 /> Remove Segment</Button>
                 <h3 className="text-md font-semibold">Advancing Candidates</h3>
                 <Input
                   type="number"
@@ -161,7 +161,7 @@ const CompetitionSettings = () => {
                         <TableRow key={criterion.id} className="border-t">
                         <TableCell>{criterion.name} - {criterion.description}</TableCell>
                         <TableCell>{criterion.maxScore}</TableCell>
-                        <TableCell><Button size="sm" variant="destructive" onClick={() => removeCriterion(segment.id, criterion.id)}><Trash2/></Button></TableCell>
+                        <TableCell><Button size="sm" variant="ghost" onClick={() => removeCriterion(segment.id, criterion.id)}><Trash2/></Button></TableCell>
                       </TableRow>
                       ))}
                     </TableBody>

@@ -3,7 +3,7 @@
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react';
-import FullPageLoader from '@/app/components/auth/loader';
+import FullPageLoader from '@/components/auth/loader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';

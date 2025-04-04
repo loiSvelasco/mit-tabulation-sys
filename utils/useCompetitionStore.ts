@@ -52,13 +52,24 @@ interface CompetitionState {
   addCriterion: (segmentId: string, criterion: Criterion) => void;
   removeCriterion: (segmentId: string, criterionId: string) => void;
   addContestant: (name: string, gender?: "Male" | "Female") => void;
+  updateContestantName: (contestantId: string, newName: string) => void;
   updateContestantSegment: (contestantId: string, segmentId: string) => void;
   removeContestant: (id: string) => void;
   addJudge: (name: string) => void;
   removeJudge: (id: string) => void;
   updateJudgeAccessCode: (id: string, newCode: string) => void;
+  updateJudgeName: (id: string, newName: string) => void;
   generateAccessCode: (judgeId: string) => void;
   setScores: (contestantId: string, judgeId: string, score: number) => void;
+  updateRankingMethod: (config: {
+    rankingMethod: string;
+    trimPercentage?: number;
+    useSegmentWeights?: boolean;
+    segmentWeights?: Record<string, number>;
+    tiebreaker?: string;
+    tiebreakerCriterionId?: string;
+    customFormula?: string;
+  }) => void;
 }
 
 const useCompetitionStore = create<CompetitionState>((set) => ({
@@ -254,7 +265,7 @@ const useCompetitionStore = create<CompetitionState>((set) => ({
 
   addContestant: (name, gender = "Female") =>
     set((state) => {
-      const newId = state.contestants.length + 1; // Sequential ID
+      const newId = state.contestants.length + 1;
       const firstSegmentId = state.competitionSettings.segments.length > 0
         ? state.competitionSettings.segments[0].id
         : "";
@@ -266,15 +277,14 @@ const useCompetitionStore = create<CompetitionState>((set) => ({
         ],
       };
     }),
+
+  updateContestantName: (contestantId: string, newName: string) =>
+    set((state) => ({
+      contestants: state.contestants.map((c) =>
+        c.id === contestantId ? { ...c, name: newName } : c
+      ),
+    })),
   
-  // updateContestantSegment: (contestantId: string, segmentId: string) =>
-  //   set((state) => ({
-  //     contestants: state.contestants.map((contestant) =>
-  //       contestant.id === contestantId
-  //         ? { ...contestant, currentSegmentId: segmentId }
-  //         : contestant
-  //     ),
-  //   })),
 
   updateContestantSegment: (contestantId: string, segmentId: string) =>
     set((state) => ({
@@ -303,6 +313,13 @@ const useCompetitionStore = create<CompetitionState>((set) => ({
     set((state) => ({
       judges: state.judges.map((judge) =>
         judge.id === id ? { ...judge, accessCode: newCode } : judge
+      ),
+    })),
+
+  updateJudgeName: (id, newName) =>
+    set((state) => ({
+      judges: state.judges.map((judge) =>
+        judge.id === id ? { ...judge, name: newName } : judge
       ),
     })),
 
