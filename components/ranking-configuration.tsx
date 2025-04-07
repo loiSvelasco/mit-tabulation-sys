@@ -12,10 +12,11 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Check, ChevronRight, Info, Save, Settings2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { useToast } from "@/components/ui/use-toast"
 import useCompetitionStore from "@/utils/useCompetitionStore"
+import type { RankingMethod, TiebreakerMethod } from "@/utils/useCompetitionStore"
+import { toast } from "sonner"
 
-// Define the ranking methods and their configurations
+// Define the ranking methods and their descriptions
 const rankingMethods = [
   {
     id: "avg",
@@ -68,31 +69,33 @@ const rankingMethods = [
 ]
 
 export function RankingConfiguration() {
-  const { toast } = useToast()
-  const { competitionSettings, updateRankingMethod } = useCompetitionStore()
+  const { competitionSettings, updateRankingConfig } = useCompetitionStore()
+  const ranking = competitionSettings.ranking || { method: "avg", tiebreaker: "highest-score" }
 
   // State for the wizard
   const [step, setStep] = useState(1)
-  const [selectedMethod, setSelectedMethod] = useState(competitionSettings.rankingMethod || "avg")
-  const [trimPercentage, setTrimPercentage] = useState(competitionSettings.trimPercentage || 20)
-  const [useSegmentWeights, setUseSegmentWeights] = useState(competitionSettings.useSegmentWeights || false)
-  const [segmentWeights, setSegmentWeights] = useState(competitionSettings.segmentWeights || {})
-  const [tiebreaker, setTiebreaker] = useState(competitionSettings.tiebreaker || "highest-score")
-  const [customFormula, setCustomFormula] = useState(competitionSettings.customFormula || "")
+  const [selectedMethod, setSelectedMethod] = useState(ranking.method || "avg")
+  const [trimPercentage, setTrimPercentage] = useState(ranking.trimPercentage || 20)
+  const [useSegmentWeights, setUseSegmentWeights] = useState(ranking.useSegmentWeights || false)
+  const [segmentWeights, setSegmentWeights] = useState(ranking.segmentWeights || {})
+  const [tiebreaker, setTiebreaker] = useState(ranking.tiebreaker || "highest-score")
+  const [tiebreakerCriterionId, setTiebreakerCriterionId] = useState(ranking.tiebreakerCriterionId || "")
+  const [customFormula, setCustomFormula] = useState(ranking.customFormula || "")
 
   // Handle saving the configuration
   const handleSave = () => {
     const config = {
-      rankingMethod: selectedMethod,
+      method: selectedMethod as RankingMethod,
       trimPercentage,
       useSegmentWeights,
       segmentWeights,
-      tiebreaker,
+      tiebreaker: tiebreaker as TiebreakerMethod,
+      tiebreakerCriterionId,
       customFormula,
     }
 
-    updateRankingMethod(config)
-		toast.success("Ranking configuration saved");
+    updateRankingConfig(config)
+    toast.success("Ranking configuration saved.");
   }
 
   // Handle next step in wizard
@@ -171,7 +174,7 @@ export function RankingConfiguration() {
                   type="number"
                   min="0"
                   max="100"
-                  value={segmentWeights[segment.id] || segment.weight || 1}
+                  value={segmentWeights[segment.id] || 1}
                   onChange={(e) =>
                     setSegmentWeights({
                       ...segmentWeights,
@@ -233,7 +236,7 @@ export function RankingConfiguration() {
         {tiebreaker === "specific-criteria" && (
           <div className="mt-4">
             <Label htmlFor="tiebreaker-criterion">Tiebreaker Criterion</Label>
-            <Select>
+            <Select value={tiebreakerCriterionId} onValueChange={setTiebreakerCriterionId}>
               <SelectTrigger id="tiebreaker-criterion">
                 <SelectValue placeholder="Select criterion" />
               </SelectTrigger>
@@ -365,7 +368,7 @@ export function RankingConfiguration() {
                   <ul className="mt-2">
                     {competitionSettings.segments.map((segment) => (
                       <li key={segment.id}>
-                        {segment.name}: {segmentWeights[segment.id] || segment.weight || 1}
+                        {segment.name}: {segmentWeights[segment.id] || 1}
                       </li>
                     ))}
                   </ul>
