@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { dbToStoreScores, storeToDbScores } from "./score-adapter"
 
 const generateAccessCode = () => {
   const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed similar looking characters
@@ -72,14 +73,15 @@ export interface CompetitionData {
   competitionSettings: CompetitionSettings
   contestants: Contestant[]
   judges: Judge[]
-  scores: Record<string, Record<string, number>>
+  scores: Record<string, Record<string, Record<string, Record<string, number>>>>
 }
 
 interface CompetitionState {
   competitionSettings: CompetitionSettings
   contestants: Contestant[]
   judges: Judge[]
-  scores: Record<string, Record<string, number>> // scores[contestantId][judgeId] = score
+  // Updated scores structure: scores[segmentId][contestantId][judgeId][criterionId] = score
+  scores: Record<string, Record<string, Record<string, Record<string, number>>>>
   isSaving: boolean
   lastSaved: Date | null
   selectedCompetitionId: number | null
@@ -97,12 +99,15 @@ interface CompetitionState {
   updateJudgeAccessCode: (id: string, newCode: string) => void
   updateJudgeName: (id: string, newName: string) => void
   generateAccessCode: (judgeId: string) => void
-  setScores: (contestantId: string, judgeId: string, score: number) => void
+  setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => void
+  getTotalScore: (segmentId: string, contestantId: string, judgeId: string) => number
+  getContestantTotalScores: (segmentId: string, contestantId: string) => number
   updateRankingConfig: (config: Partial<RankingConfig>) => void
 
   // New persistence methods
   saveCompetition: () => Promise<void>
   loadCompetition: (competitionId: number) => Promise<void>
+  loadScores: (competitionId: number) => Promise<void> // New method to load scores from DB
   exportAllData: () => string
   importAllData: (jsonData: string) => void
   exportCompetitionSettings: () => string
@@ -367,16 +372,109 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       ),
     })),
 
-  setScores: (contestantId, judgeId, score) =>
-    set((state) => ({
-      scores: {
-        ...state.scores,
-        [contestantId]: {
-          ...state.scores[contestantId],
-          [judgeId]: score,
-        },
-      },
-    })),
+  // MODIFIED: Update setScores to save to database and track criterion-specific scores
+  setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => {
+    // Update the store immediately for UI feedback
+    set((state) => {
+      // Create a deep copy of the current scores to avoid mutation issues
+      const newScores = { ...state.scores }
+
+      // Initialize segment scores object if it doesn't exist
+      if (!newScores[segmentId]) {
+        newScores[segmentId] = {}
+      }
+
+      // Initialize contestant scores object if it doesn't exist
+      if (!newScores[segmentId][contestantId]) {
+        newScores[segmentId][contestantId] = {}
+      }
+
+      // Initialize judge scores object if it doesn't exist
+      if (!newScores[segmentId][contestantId][judgeId]) {
+        newScores[segmentId][contestantId][judgeId] = {}
+      }
+
+      // Set the score for the specific criterion
+      newScores[segmentId][contestantId][judgeId][criterionId] = score
+
+      return { scores: newScores }
+    })
+
+    // Then try to save to the database (but don't block the UI update)
+    const state = get()
+    const competitionId = state.selectedCompetitionId
+
+    if (competitionId) {
+      // Get the segment and criterion
+      const segment = state.competitionSettings.segments.find((s) => s.id === segmentId)
+      const criterion = segment?.criteria.find((c) => c.id === criterionId)
+
+      if (segment && criterion) {
+        fetch("/api/scores", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            competitionId,
+            segmentId,
+            criterionId,
+            contestantId,
+            judgeId,
+            score,
+          }),
+        }).catch((error) => {
+          console.error("Error saving score to database:", error)
+        })
+      }
+    }
+  },
+
+  // Helper function to get the total score for a contestant from a judge in a segment
+  getTotalScore: (segmentId: string, contestantId: string, judgeId: string) => {
+    const state = get()
+    const judgeScores = state.scores[segmentId]?.[contestantId]?.[judgeId] || {}
+
+    // Sum all criterion scores
+    return Object.values(judgeScores).reduce((total, score) => total + score, 0)
+  },
+
+  // Helper function to get the total score for a contestant across all judges in a segment
+  getContestantTotalScores: (segmentId: string, contestantId: string) => {
+    const state = get()
+    const contestantScores = state.scores[segmentId]?.[contestantId] || {}
+
+    let totalScore = 0
+
+    // Sum scores from all judges
+    Object.keys(contestantScores).forEach((judgeId) => {
+      const judgeScores = contestantScores[judgeId] || {}
+      totalScore += Object.values(judgeScores).reduce((sum, score) => sum + score, 0)
+    })
+
+    return totalScore
+  },
+
+  // NEW: Add loadScores method to fetch scores from database
+  loadScores: async (competitionId) => {
+    try {
+      const response = await fetch(`/api/scores?competitionId=${competitionId}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to load scores from database")
+      }
+
+      const scoresData = await response.json()
+
+      // Convert database format to store format
+      const storeScores = dbToStoreScores(scoresData)
+
+      set({ scores: storeScores })
+    } catch (error) {
+      console.error("Error loading scores:", error)
+      // Keep existing scores if loading fails
+    }
+  },
 
   updateRankingConfig: (config) =>
     set((state) => ({
@@ -389,7 +487,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       },
     })),
 
-  // New persistence methods
+  // MODIFIED: Update saveCompetition to handle scores separately
   saveCompetition: async () => {
     set({ isSaving: true })
 
@@ -399,7 +497,8 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         competitionSettings: state.competitionSettings,
         contestants: state.contestants,
         judges: state.judges,
-        scores: state.scores,
+        // Don't include scores here, they're saved separately
+        scores: {},
       }
 
       const response = await fetch("/api/competitions", {
@@ -410,7 +509,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         body: JSON.stringify({
           competitionData,
           name: state.competitionSettings.name,
-          competitionId: state.selectedCompetitionId, // Pass the ID if updating an existing competition
+          competitionId: state.selectedCompetitionId,
         }),
       })
 
@@ -424,6 +523,11 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       // If this was a new competition, store its ID for future updates
       if (!state.selectedCompetitionId && result.id) {
         set({ selectedCompetitionId: result.id })
+
+        // If we have scores in memory, save them to the database for the new competition
+        if (Object.keys(state.scores).length > 0) {
+          await get().exportScores()
+        }
       }
 
       set({
@@ -439,6 +543,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
+  // MODIFIED: Update loadCompetition to load scores from database
   loadCompetition: async (competitionId) => {
     try {
       const response = await fetch(`/api/competitions/${competitionId}/data`)
@@ -454,25 +559,47 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         competitionSettings: competitionData.competitionSettings,
         contestants: competitionData.contestants,
         judges: competitionData.judges,
-        scores: competitionData.scores,
+        // Don't set scores here, we'll load them separately
         lastSaved: new Date(),
-        selectedCompetitionId: competitionId, // Set the selected competition ID
+        selectedCompetitionId: competitionId,
       })
+
+      // Load scores from database
+      await get().loadScores(competitionId)
     } catch (error) {
       console.error("Error loading competition:", error)
       throw error
     }
   },
 
-  // Export/import methods for the entire competition data
-  exportAllData: () => {
+  // MODIFIED: Update exportAllData to include scores from database
+  exportAllData: async () => {
     const state = get()
+    const competitionId = state.selectedCompetitionId
+
+    // Fetch latest scores from database if we have a competition ID
+    let scores = state.scores
+    if (competitionId) {
+      try {
+        const response = await fetch(`/api/scores?competitionId=${competitionId}`)
+
+        if (response.ok) {
+          const scoresData = await response.json()
+          scores = dbToStoreScores(scoresData)
+        }
+      } catch (error) {
+        console.error("Error fetching scores for export:", error)
+        // Use existing scores if fetch fails
+      }
+    }
+
     const competitionData = {
       competitionSettings: state.competitionSettings,
       contestants: state.contestants,
       judges: state.judges,
-      scores: state.scores,
+      scores: scores,
     }
+
     return JSON.stringify(competitionData, null, 2)
   },
 
@@ -485,13 +612,19 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         judges: data.judges,
         scores: data.scores,
       })
+
+      // If we have a selected competition, save the imported scores to the database
+      const competitionId = get().selectedCompetitionId
+      if (competitionId && Object.keys(data.scores).length > 0) {
+        // We'll handle this in a separate function to avoid making this async
+        get().importScores(JSON.stringify(data.scores))
+      }
     } catch (error) {
       console.error("Error importing data:", error)
       throw new Error("Invalid JSON data format")
     }
   },
 
-  // Export/import methods for individual sections
   exportCompetitionSettings: () => {
     return JSON.stringify(get().competitionSettings, null, 2)
   },
@@ -534,14 +667,68 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  exportScores: () => {
-    return JSON.stringify(get().scores, null, 2)
+  // MODIFIED: Update exportScores to fetch from database
+  exportScores: async () => {
+    try {
+      const state = get()
+      const competitionId = state.selectedCompetitionId
+
+      if (!competitionId) {
+        // If no competition is selected, just export the in-memory scores
+        return JSON.stringify(state.scores, null, 2)
+      }
+
+      // Fetch scores from database
+      const response = await fetch(`/api/scores?competitionId=${competitionId}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch scores from database")
+      }
+
+      const scoresData = await response.json()
+
+      // Transform the data to match the current structure
+      const formattedScores = dbToStoreScores(scoresData)
+
+      return JSON.stringify(formattedScores, null, 2)
+    } catch (error) {
+      console.error("Error exporting scores:", error)
+      // Fall back to in-memory scores if database fetch fails
+      return JSON.stringify(get().scores, null, 2)
+    }
   },
 
-  importScores: (jsonData) => {
+  // MODIFIED: Update importScores to save to database
+  importScores: async (jsonData) => {
     try {
-      const scores = JSON.parse(jsonData) as Record<string, Record<string, number>>
+      const scores = JSON.parse(jsonData) as Record<string, Record<string, Record<string, Record<string, number>>>>
+      const state = get()
+      const competitionId = state.selectedCompetitionId
+
+      // Update local state first for immediate UI feedback
       set({ scores })
+
+      // If we have a competition ID, save to database
+      if (competitionId) {
+        // First, clear existing scores for this competition
+        await fetch(`/api/scores?competitionId=${competitionId}`, {
+          method: "DELETE",
+        })
+
+        // Convert store format to database format
+        const dbScores = storeToDbScores(scores, competitionId)
+
+        // Then import new scores
+        const scorePromises = dbScores.map((scoreData) =>
+          fetch("/api/scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(scoreData),
+          }),
+        )
+
+        await Promise.all(scorePromises)
+      }
     } catch (error) {
       console.error("Error importing scores:", error)
       throw new Error("Invalid scores format")
@@ -550,4 +737,3 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
 }))
 
 export default useCompetitionStore
-

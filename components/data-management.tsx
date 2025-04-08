@@ -13,6 +13,8 @@ import { toast } from "sonner"
 export default function DataManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [importType, setImportType] = useState<string>("all")
+  const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
 
   const {
     exportAllData,
@@ -27,14 +29,15 @@ export default function DataManagement() {
     importScores,
   } = useCompetitionStore()
 
-  const handleExport = (type: string) => {
+  const handleExport = async (type: string) => {
+    setIsExporting(true)
     try {
       let data: string
       let filename: string
 
       switch (type) {
         case "all":
-          data = exportAllData()
+          data = await exportAllData()
           filename = "competition_data.json"
           break
         case "settings":
@@ -50,11 +53,11 @@ export default function DataManagement() {
           filename = "judges.json"
           break
         case "scores":
-          data = exportScores()
+          data = await exportScores()
           filename = "scores.json"
           break
         default:
-          data = exportAllData()
+          data = await exportAllData()
           filename = "competition_data.json"
       }
 
@@ -71,7 +74,10 @@ export default function DataManagement() {
 
       toast.success("Export successful.")
     } catch (error) {
+      console.error("Error exporting data:", error)
       toast.error("Export failed.")
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -87,6 +93,7 @@ export default function DataManagement() {
       return
     }
 
+    setIsImporting(true)
     try {
       const fileContent = await selectedFile.text()
 
@@ -104,7 +111,7 @@ export default function DataManagement() {
           importJudges(fileContent)
           break
         case "scores":
-          importScores(fileContent)
+          await importScores(fileContent)
           break
       }
 
@@ -115,7 +122,10 @@ export default function DataManagement() {
       const fileInput = document.getElementById("file-input") as HTMLInputElement
       if (fileInput) fileInput.value = ""
     } catch (error) {
+      console.error("Error importing data:", error)
       toast.error("Import failed.")
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -170,7 +180,7 @@ export default function DataManagement() {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-lg font-medium">{option.name}</CardTitle>
-                  <Download className="h-5 w-5 text-muted-foreground" />
+                  <Download className={`h-5 w-5 ${isExporting ? "animate-pulse" : "text-muted-foreground"}`} />
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center space-x-4">
@@ -222,9 +232,9 @@ export default function DataManagement() {
               {selectedFile && <p className="text-sm text-muted-foreground">Selected file: {selectedFile.name}</p>}
             </div>
 
-            <Button onClick={handleImport} disabled={!selectedFile} className="w-full">
+            <Button onClick={handleImport} disabled={!selectedFile || isImporting} className="w-full">
               <Save className="mr-2 h-4 w-4" />
-              Import {dataOptions.find((o) => o.id === importType)?.name}
+              {isImporting ? "Importing..." : `Import ${dataOptions.find((o) => o.id === importType)?.name}`}
             </Button>
           </div>
         </TabsContent>

@@ -280,7 +280,7 @@ export function rankContestants(
 
     // For rank-based methods, lower is better
     if (rankingMethod === "avg-rank" || rankingMethod === "rank-avg-rank") {
-      return scoreA - scoreB
+      return scoreA - scoreB // This is correct - lower ranks are better
     }
 
     // For all other methods, higher is better
@@ -385,4 +385,3 @@ function applyTiebreaker(
     }
   })
 }
-

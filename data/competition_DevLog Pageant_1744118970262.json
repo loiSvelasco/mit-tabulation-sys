@@ -1,12 +1,12 @@
 {
   "competitionSettings": {
-    "name": "Beauty Pageant",
+    "name": "DevLog Pageant",
     "separateRankingByGender": false,
     "segments": [
       {
         "id": "1",
         "name": "Preliminary",
-        "advancingCandidates": 10,
+        "advancingCandidates": 5,
         "criteria": [
           {
             "id": "38cfe650-23a9-4613-9420-f29b701c530f",

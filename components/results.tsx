@@ -1,49 +1,263 @@
-import React from "react";
-import useCompetitionStore from "@/utils/useCompetitionStore";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import FinalRankings from "./results/FinalRankings";
-import DetailedScores from "./results/DetailedScores";
-import JudgeComparison from "./results/JudgeComparison";
-import RankingBreakdown from "./results/RankingBreakdown";
+"use client"
+
+import React from "react"
+import useCompetitionStore from "@/utils/useCompetitionStore"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import FinalRankings from "./results/FinalRankings"
+import DetailedScores from "./results/DetailedScores"
+import JudgeComparison from "./results/JudgeComparison"
+import RankingBreakdown from "./results/RankingBreakdown"
+import CriteriaScores from "./results/CriteriaScores"
+import TestScoring from "./test-scoring"
+import { Button } from "@/components/ui/button"
+import { ChevronRight, Award, BarChart3 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
+import { calculateSegmentScores } from "@/utils/rankingUtils"
 
 const Results = () => {
-  
-  const { competitionSettings } = useCompetitionStore();
-  const { segments } = competitionSettings; // ✅ Access segments correctly
+  const { competitionSettings, contestants, updateContestantSegment, scores, judges, setScores } = useCompetitionStore()
+  const { segments } = competitionSettings
+  const [selectedSegmentId, setSelectedSegmentId] = React.useState<string>(segments[0]?.id || "no-segments")
+  const [activeContentTab, setActiveContentTab] = React.useState<string>("overview")
+  const [showTestScoring, setShowTestScoring] = React.useState(false)
+
+  // Add a debug panel to help troubleshoot score issues
+  const [showDebug, setShowDebug] = React.useState(false)
+
+  // Find the next segment ID
+  const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)
+  const nextSegment = segments[currentSegmentIndex + 1]
+
+  // Get contestants in the current segment
+  const currentContestants = contestants.filter((c) => c.currentSegmentId === selectedSegmentId)
+
+  // Get the current segment
+  const currentSegment = segments.find((s) => s.id === selectedSegmentId)
+
+  // Add this function to the Results component
+  const handleAdvanceToNextSegment = () => {
+    if (!nextSegment) {
+      toast.error("This is the last segment. Cannot advance further.")
+      return
+    }
+
+    if (!currentSegment) {
+      toast.error("Current segment not found.")
+      return
+    }
+
+    // Get the number of contestants that should advance
+    const advancingCount = currentSegment.advancingCandidates || 0
+
+    if (advancingCount <= 0) {
+      toast.error(`Please set the number of advancing candidates for ${currentSegment.name} segment.`)
+      return
+    }
+
+    // Get contestants sorted by their ranking
+    const sortedContestants = [...currentContestants]
+
+    // Sort contestants based on the ranking method
+    // For rank-based methods (lower is better)
+    if (competitionSettings.ranking.method === "rank-avg-rank" || competitionSettings.ranking.method === "avg-rank") {
+      // Get rankings from the ranking utils
+      const rankings = calculateSegmentScores(
+        contestants,
+        judges,
+        scores[selectedSegmentId] || {}, // Use segment-specific scores
+        selectedSegmentId,
+        competitionSettings.ranking,
+      )
+
+      // Sort by rank (lower is better)
+      sortedContestants.sort((a, b) => {
+        const rankA = rankings[a.id]?.rank || 999
+        const rankB = rankings[b.id]?.rank || 999
+        return rankA - rankB
+      })
+    } else {
+      // For score-based methods (higher is better)
+      // Get rankings from the ranking utils
+      const rankings = calculateSegmentScores(
+        contestants,
+        judges,
+        scores[selectedSegmentId] || {}, // Use segment-specific scores
+        selectedSegmentId,
+        competitionSettings.ranking,
+      )
+
+      // Sort by score (higher is better)
+      sortedContestants.sort((a, b) => {
+        const scoreA = rankings[a.id]?.score || 0
+        const scoreB = rankings[b.id]?.score || 0
+        return scoreB - scoreA
+      })
+    }
+
+    // Get the top contestants based on advancingCount
+    const advancingContestants = sortedContestants.slice(0, advancingCount)
+
+    // Move advancing contestants to the next segment
+    advancingContestants.forEach((contestant) => {
+      // Update segment
+      updateContestantSegment(contestant.id, nextSegment.id)
+
+      // No need to reset scores as they're now segment-specific
+      // Scores for the new segment will start at 0 automatically
+    })
+
+    toast.success(`Advanced ${advancingContestants.length} contestants to ${nextSegment.name}`)
+
+    // Switch to the next segment tab
+    setSelectedSegmentId(nextSegment.id)
+  }
 
   return (
-    <Tabs defaultValue={segments[0]?.id || "no-segments"}>
-      <TabsList>
-        {segments.length > 0 ? (
-          segments.map((segment) => (
-            <TabsTrigger key={segment.id} value={segment.id}>
-              {segment.name}
-            </TabsTrigger>
-          ))
-        ) : (
-          <TabsTrigger value="no-segments" disabled>No Segments</TabsTrigger>
-        )}
-      </TabsList>
+    <div className="space-y-6">
+      {/* Phase 1 Notice */}
+      <Alert>
+        <BarChart3 className="h-4 w-4" />
+        <AlertTitle>Phase 1 Implementation</AlertTitle>
+        <AlertDescription>
+          This is the Phase 1 implementation of the tabulation system. In Phase 2, we will implement full per-criteria
+          scoring and database integration.
+        </AlertDescription>
+      </Alert>
 
-      {segments.length > 0 ? (
-        segments.map((segment) => (
-          <TabsContent key={segment.id} value={segment.id}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card><FinalRankings segmentId={segment.id} /></Card>
-              <Card><DetailedScores segmentId={segment.id} /></Card>
-              <Card><JudgeComparison segmentId={segment.id} /></Card>
-              <Card><RankingBreakdown segmentId={segment.id} /></Card>
+      {/* Test Scoring Toggle */}
+      <div className="flex justify-end">
+        <Button variant={showTestScoring ? "default" : "outline"} onClick={() => setShowTestScoring(!showTestScoring)}>
+          {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
+        </Button>
+      </div>
+
+      <div className="flex justify-end mt-2">
+        <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
+          {showDebug ? "Hide Debug Info" : "Show Debug Info"}
+        </Button>
+      </div>
+
+      {showDebug && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Debug Information</CardTitle>
+            <CardDescription>Current state of scores in the store</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-60 overflow-auto">
+              <pre className="text-xs">{JSON.stringify(scores, null, 2)}</pre>
             </div>
-          </TabsContent>
-        ))
-      ) : (
-        <TabsContent value="no-segments">
-          <p className="text-center text-gray-500">No segments available.</p>
-        </TabsContent>
+          </CardContent>
+        </Card>
       )}
-    </Tabs>
-  );
-};
 
-export default Results;
+      {showTestScoring && (
+        <Card className="mb-6">
+          <TestScoring />
+        </Card>
+      )}
+
+      {/* Segment Navigation and Advancement */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Award className="mr-2 h-5 w-5" />
+            Competition Progress
+          </CardTitle>
+          <CardDescription>View results by segment and advance contestants to the next round</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center space-x-2">
+              {segments.map((segment, index) => (
+                <React.Fragment key={segment.id}>
+                  <div
+                    className={`px-4 py-2 rounded-md cursor-pointer border-2 ${selectedSegmentId === segment.id ? "border-primary bg-primary/10" : "border-border"}`}
+                    onClick={() => setSelectedSegmentId(segment.id)}
+                  >
+                    <span className="font-medium">{segment.name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({contestants.filter((c) => c.currentSegmentId === segment.id).length} contestants)
+                    </span>
+                  </div>
+
+                  {index < segments.length - 1 && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                </React.Fragment>
+              ))}
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm">
+                  <span className="font-medium">Current Segment:</span> {currentSegment?.name}
+                </p>
+                <p className="text-sm">
+                  <span className="font-medium">Contestants:</span> {currentContestants.length}
+                </p>
+                <p className="text-sm">
+                  <span className="font-medium">Advancing:</span> {currentSegment?.advancingCandidates || 0}
+                </p>
+              </div>
+
+              <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment}>
+                Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Results Tabs */}
+      <Tabs value={activeContentTab} onValueChange={setActiveContentTab}>
+        <TabsList className="grid grid-cols-3">
+          <TabsTrigger value="overview">Rankings</TabsTrigger>
+          <TabsTrigger value="detailed">Detailed Scores</TabsTrigger>
+          <TabsTrigger value="criteria">Criteria Breakdown</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4 mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <FinalRankings segmentId={selectedSegmentId} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <RankingBreakdown segmentId={selectedSegmentId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="detailed" className="space-y-4 mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <DetailedScores segmentId={selectedSegmentId} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <JudgeComparison segmentId={selectedSegmentId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="criteria" className="space-y-4 mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <CriteriaScores segmentId={selectedSegmentId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+export default Results
