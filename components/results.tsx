@@ -67,15 +67,22 @@ const Results = () => {
       const rankings = calculateSegmentScores(
         contestants,
         judges,
-        scores[selectedSegmentId] || {}, // Use segment-specific scores
+        scores,
         selectedSegmentId,
         competitionSettings.ranking,
       )
+
+      // Add debug logging
+      console.log("Results - Advancing contestants using rank-based method:", competitionSettings.ranking.method)
+      console.log("Rankings:", rankings)
 
       // Sort by rank (lower is better)
       sortedContestants.sort((a, b) => {
         const rankA = rankings[a.id]?.rank || 999
         const rankB = rankings[b.id]?.rank || 999
+
+        console.log(`Results - Comparing for advancement: ${a.name} (rank ${rankA}) vs ${b.name} (rank ${rankB})`)
+
         return rankA - rankB
       })
     } else {
@@ -84,18 +91,31 @@ const Results = () => {
       const rankings = calculateSegmentScores(
         contestants,
         judges,
-        scores[selectedSegmentId] || {}, // Use segment-specific scores
+        scores,
         selectedSegmentId,
         competitionSettings.ranking,
       )
+
+      // Add debug logging
+      console.log("Results - Advancing contestants using score-based method:", competitionSettings.ranking.method)
+      console.log("Rankings:", rankings)
 
       // Sort by score (higher is better)
       sortedContestants.sort((a, b) => {
         const scoreA = rankings[a.id]?.score || 0
         const scoreB = rankings[b.id]?.score || 0
+
+        console.log(`Results - Comparing for advancement: ${a.name} (score ${scoreA}) vs ${b.name} (score ${scoreB})`)
+
         return scoreB - scoreA
       })
     }
+
+    // Add debug logging for the final sorted list
+    console.log(
+      "Results - Sorted contestants for advancement:",
+      sortedContestants.map((c) => c.name),
+    )
 
     // Get the top contestants based on advancingCount
     const advancingContestants = sortedContestants.slice(0, advancingCount)
@@ -144,11 +164,30 @@ const Results = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Debug Information</CardTitle>
-            <CardDescription>Current state of scores in the store</CardDescription>
+            <CardDescription>Current state of scores and ranking configuration</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="max-h-60 overflow-auto">
-              <pre className="text-xs">{JSON.stringify(scores, null, 2)}</pre>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Current Ranking Configuration:</h3>
+                <pre className="text-xs bg-muted p-2 rounded">
+                  {JSON.stringify(competitionSettings.ranking, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium mb-2">Current Scores Structure:</h3>
+                <div className="max-h-60 overflow-auto">
+                  <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(Object.keys(scores), null, 2)}</pre>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium mb-2">Selected Segment Scores:</h3>
+                <div className="max-h-60 overflow-auto">
+                  <pre className="text-xs bg-muted p-2 rounded">
+                    {JSON.stringify(scores[selectedSegmentId] || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -20,7 +20,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
   const segment = competitionSettings.segments.find((s) => s.id === segmentId)
 
   // Calculate rankings using the ranking-utils
-  const rankings = calculateSegmentScores(contestants, judges, scores, segmentId, competitionSettings.ranking)
+  const rankings = calculateSegmentScores(segmentContestants, judges, scores, segmentId, competitionSettings.ranking)
 
   // Sort contestants by rank
   const sortedContestants = [...segmentContestants].sort((a, b) => {
@@ -29,9 +29,12 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
     return rankA - rankB
   })
 
-  // Debug log to verify rankings
+  // Add more debug logging to verify the ranking method being used
+  console.log("FinalRankings - Ranking Config:", competitionSettings.ranking)
+  console.log("FinalRankings - Method:", competitionSettings.ranking.method)
+  console.log("FinalRankings - Scores:", scores)
   console.log("Final Rankings - Method:", competitionSettings.ranking.method)
-  console.log("Final Rankings - Scores and Ranks:", rankings)
+  console.log("FinalRankings - Scores and Ranks:", rankings)
 
   // Calculate total maximum possible score
   const totalMaxScore = segment?.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0) || 0

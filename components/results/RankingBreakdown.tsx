@@ -3,9 +3,10 @@
 import type React from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
+import { convertScoresToRanks } from "@/utils/rankingUtils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info } from "lucide-react"
+import { calculateSegmentScores } from "@/utils/rankingUtils"
 
 interface Props {
   segmentId: string
@@ -49,7 +50,12 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
       const judgeScores: Record<string, number> = {}
 
       groupContestants.forEach((contestant) => {
-        judgeScores[contestant.id] = scores[contestant.id]?.[judge.id] || 0
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+            (sum, score) => sum + score,
+            0,
+          )
+        }
       })
 
       judgeRankings[group][judge.id] = convertScoresToRanks(judgeScores)
@@ -125,7 +131,9 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
                   <TableRow key={contestant.id}>
                     <TableCell>{contestant.name}</TableCell>
                     {judges.map((judge) => {
-                      const score = scores[contestant.id]?.[judge.id] || 0
+                      const score = scores[segmentId]?.[contestant.id]?.[judge.id]
+                        ? Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, s) => sum + s, 0)
+                        : 0
                       const rank = judgeRankings[group][judge.id]?.[contestant.id] || "-"
 
                       return (

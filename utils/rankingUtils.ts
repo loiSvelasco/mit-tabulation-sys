@@ -80,7 +80,7 @@ interface RankingConfig {
 export function calculateSegmentScores(
   contestants: Contestant[],
   judges: { id: string; name: string }[],
-  scores: Record<string, Record<string, Record<string, number>>>,
+  scores: Record<string, Record<string, Record<string, Record<string, number>>>>,
   segmentId: string,
   rankingConfig: RankingConfig,
 ): Record<string, { score: number; rank: number }> {
@@ -91,15 +91,15 @@ export function calculateSegmentScores(
   const rawScores: Record<string, number> = {}
 
   segmentContestants.forEach((contestant) => {
-    // Get all criterion scores for this contestant from all judges
+    // Get all scores for this contestant from all judges
     const allScores: number[] = []
 
-    if (scores[contestant.id]) {
-      Object.keys(scores[contestant.id]).forEach((judgeId) => {
-        const criterionScores = Object.values(scores[contestant.id][judgeId] || {})
+    judges.forEach((judge) => {
+      if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+        const criterionScores = Object.values(scores[segmentId][contestant.id][judge.id])
         allScores.push(...criterionScores)
-      })
-    }
+      }
+    })
 
     if (allScores.length === 0) {
       rawScores[contestant.id] = 0
@@ -168,9 +168,9 @@ export function calculateSegmentScores(
 
       // Get this judge's scores for all contestants
       segmentContestants.forEach((contestant) => {
-        if (scores[contestant.id]?.[judge.id]) {
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           // Sum all criterion scores for this judge
-          judgeScores[contestant.id] = Object.values(scores[contestant.id][judge.id]).reduce(
+          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
             (sum, score) => sum + score,
             0,
           )
@@ -212,9 +212,9 @@ export function calculateSegmentScores(
 
       // Get this judge's scores for all contestants
       segmentContestants.forEach((contestant) => {
-        if (scores[contestant.id]?.[judge.id]) {
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           // Sum all criterion scores for this judge
-          judgeScores[contestant.id] = Object.values(scores[contestant.id][judge.id]).reduce(
+          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
             (sum, score) => sum + score,
             0,
           )
@@ -235,7 +235,7 @@ export function calculateSegmentScores(
 
   // Apply tiebreaker if needed
   if (rankingConfig.tiebreaker !== "none") {
-    applyTiebreaker(finalScores, scores, rankingConfig)
+    applyTiebreaker(finalScores, scores, rankingConfig, segmentId)
   }
 
   // Create the result object with both score and rank
@@ -244,6 +244,10 @@ export function calculateSegmentScores(
   // For rank-based methods (lower is better), sort in ascending order
   // For other methods (higher is better), sort in descending order
   const isRankBased = rankingConfig.method === "rank-avg-rank" || rankingConfig.method === "avg-rank"
+
+  // Add this debug log:
+  console.log(`calculateSegmentScores - Method: ${rankingConfig.method}, Is Rank Based: ${isRankBased}`)
+  console.log("Raw scores before sorting:", finalScores)
 
   // Sort contestants based on their scores
   const sortedContestants = [...segmentContestants].sort((a, b) => {
@@ -258,6 +262,12 @@ export function calculateSegmentScores(
     // For other methods, higher scores are better
     return scoreB - scoreA
   })
+
+  // Add this debug log:
+  console.log(
+    "Sorted contestants:",
+    sortedContestants.map((c) => `${c.name}: ${finalScores[c.id]}`),
+  )
 
   // Assign ranks based on the sorted order
   sortedContestants.forEach((contestant, index) => {
@@ -278,12 +288,13 @@ export function calculateSegmentScores(
 // Apply tiebreaker rules
 function applyTiebreaker(
   finalScores: Record<string, number>,
-  scores: Record<string, Record<string, Record<string, number>>>,
+  scores: Record<string, Record<string, Record<string, Record<string, number>>>>,
   rankingConfig: {
     method: string
     tiebreaker: string
     tiebreakerCriterionId?: string
   },
+  segmentId: string,
 ): void {
   // Find ties
   const scoreGroups: Record<number, string[]> = {}
@@ -308,9 +319,9 @@ function applyTiebreaker(
           let maxScore = 0
 
           // Find the highest score across all judges and criteria
-          if (scores[contestantId]) {
-            Object.values(scores[contestantId]).forEach((judgeScores) => {
-              Object.values(judgeScores).forEach((score) => {
+          if (scores[segmentId]?.[contestantId]) {
+            Object.keys(scores[segmentId][contestantId]).forEach((judgeId) => {
+              Object.values(scores[segmentId][contestantId][judgeId]).forEach((score) => {
                 if (score > maxScore) maxScore = score
               })
             })

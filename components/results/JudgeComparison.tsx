@@ -22,7 +22,13 @@ const JudgeComparison: React.FC<Props> = ({ segmentId }) => {
     const judgeScores: Record<string, number> = {}
 
     segmentContestants.forEach((contestant) => {
-      judgeScores[contestant.id] = scores[contestant.id]?.[judge.id] || 0
+      if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+        const judgeTotal = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+          (sum, score) => sum + score,
+          0,
+        )
+        judgeScores[contestant.id] = judgeTotal
+      }
     })
 
     judgeRankings[judge.id] = convertScoresToRanks(judgeScores)
@@ -47,7 +53,10 @@ const JudgeComparison: React.FC<Props> = ({ segmentId }) => {
   // Calculate variance in scores and ranks
   const calculateVariance = (contestantId: string) => {
     // Variance in scores
-    const judgeScores = judges.map((judge) => scores[contestantId]?.[judge.id] || 0)
+    const judgeScores = judges.map((judge) => {
+      if (!scores[segmentId]?.[contestantId]?.[judge.id]) return 0
+      return Object.values(scores[segmentId][contestantId][judge.id]).reduce((sum, score) => sum + score, 0)
+    })
     const nonZeroScores = judgeScores.filter((score) => score > 0)
 
     let scoreVariance = 0
@@ -119,7 +128,14 @@ const JudgeComparison: React.FC<Props> = ({ segmentId }) => {
                 <TableCell className="font-medium">{contestant.name}</TableCell>
                 {judges.map((judge) => (
                   <React.Fragment key={judge.id}>
-                    <TableCell className="text-center">{scores[contestant.id]?.[judge.id] || 0}</TableCell>
+                    <TableCell className="text-center">
+                      {scores[segmentId]?.[contestant.id]?.[judge.id]
+                        ? Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+                            (sum, score) => sum + score,
+                            0,
+                          )
+                        : 0}
+                    </TableCell>
                     <TableCell className="text-center">{judgeRankings[judge.id]?.[contestant.id] || "-"}</TableCell>
                   </React.Fragment>
                 ))}
