@@ -1,6 +1,6 @@
 {
   "competitionSettings": {
-    "name": "DevLog Pageant",
+    "name": "[dev_test] TanOk 2025",
     "separateRankingByGender": false,
     "segments": [
       {
@@ -9,115 +9,178 @@
         "advancingCandidates": 5,
         "criteria": [
           {
-            "id": "38cfe650-23a9-4613-9420-f29b701c530f",
-            "name": "Beauty",
-            "description": "Overall Physical Appearance",
-            "maxScore": 30
-          },
-          {
-            "id": "26c98b1b-f5d0-4cef-9349-62dd5302757e",
-            "name": "Swimsuit",
-            "description": "Summer Attire",
+            "id": "edb8c9bb-ea8f-404c-af38-75094bb1d67c",
+            "name": "Story",
+            "description": "",
             "maxScore": 20
           },
           {
-            "id": "d30e0346-8694-44c8-a430-f32cd54c184d",
-            "name": "Formal Wear",
-            "description": "Evening Gown",
+            "id": "6dd8f672-902d-4433-8f3e-2c1b3576ba8c",
+            "name": "Performance",
+            "description": "",
             "maxScore": 20
           },
           {
-            "id": "3a3eb14b-81ca-4c3b-b8b4-68c3c8f794ee",
-            "name": "Q&A",
-            "description": "Wit and Intelligence",
-            "maxScore": 30
-          }
-        ]
-      },
-      {
-        "id": "2",
-        "name": "Final",
-        "advancingCandidates": 3,
-        "criteria": [
-          {
-            "id": "770d1856-2a7b-4d30-b9d3-b069d001de40",
-            "name": "Beauty",
-            "description": "Overall Physical Appearance",
-            "maxScore": 50
+            "id": "e33bf4b7-1600-4a35-9ae6-36245b7d03bb",
+            "name": "Choreo",
+            "description": "",
+            "maxScore": 20
           },
           {
-            "id": "5816702c-94c9-4162-9e98-46f12cfa578d",
-            "name": "Q&A",
-            "description": "Wit and Intelligence",
-            "maxScore": 50
+            "id": "19e1aacd-44ae-4eeb-ad0b-d1ec92d6e10b",
+            "name": "Production Design",
+            "description": "",
+            "maxScore": 20
+          },
+          {
+            "id": "f54504c1-9c95-409b-bbfa-a0961989e6cc",
+            "name": "Originality",
+            "description": "",
+            "maxScore": 20
           }
         ]
       }
     ],
     "ranking": {
-      "method": "avg",
-      "tiebreaker": "highest-score",
-      "useSegmentWeights": false
+      "method": "trimmed",
+      "tiebreaker": "none",
+      "useSegmentWeights": false,
+      "trimPercentage": 40,
+      "segmentWeights": {},
+      "tiebreakerCriterionId": "",
+      "customFormula": "max_score * 2"
     }
   },
   "contestants": [
     {
       "id": "1",
-      "name": "Candidate 1",
+      "name": "Dingras",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "2",
-      "name": "Candidate 2",
+      "name": "Pasuquin",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "3",
-      "name": "Candidate 3",
+      "name": "Solsona",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "4",
-      "name": "Candidate 4",
+      "name": "Banna",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "5",
-      "name": "Candidate 5",
+      "name": "Sarrat",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "6",
-      "name": "Candidate 6",
+      "name": "Adams",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "7",
-      "name": "Candidate 7",
+      "name": "Currimao",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "8",
-      "name": "Candidate 8",
+      "name": "Pagudpud",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "9",
-      "name": "Candidate 9",
+      "name": "Pinili",
       "gender": "Female",
       "currentSegmentId": "1"
     },
     {
       "id": "10",
-      "name": "Candidate 10",
+      "name": "Badoc",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "11",
+      "name": "Burgos",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "12",
+      "name": "San Nicolas",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "13",
+      "name": "Marcos",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "14",
+      "name": "Paoay",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "15",
+      "name": "Batac",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "16",
+      "name": "Dumalneg",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "17",
+      "name": "Piddig",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "18",
+      "name": "Bacarra",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "19",
+      "name": "Vintar",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "20",
+      "name": "Nueva Era",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "21",
+      "name": "Carasi",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "22",
+      "name": "Bangui",
       "gender": "Female",
       "currentSegmentId": "1"
     }
@@ -137,6 +200,26 @@
       "id": "04d513ca-d422-45a3-968a-dd7f95779825",
       "name": "Judge 3",
       "accessCode": "8EVWE7"
+    },
+    {
+      "id": "05c447de-22ec-4300-b647-4ef4fa34f060",
+      "name": "Judge 4",
+      "accessCode": "CXK8BJ"
+    },
+    {
+      "id": "2243f79a-94d1-440b-a0d4-7596612e37d9",
+      "name": "Judge 5",
+      "accessCode": "8SEZN6"
+    },
+    {
+      "id": "44c59e12-e974-4b5f-81cd-47440f7ccefd",
+      "name": "Judge 6",
+      "accessCode": "RC8MUF"
+    },
+    {
+      "id": "001df5d5-e144-46c9-a759-02f2f6d9b029",
+      "name": "Judge 7",
+      "accessCode": "PSPCJ7"
     }
   ],
   "scores": {}

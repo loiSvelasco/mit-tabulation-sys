@@ -1,0 +1,5 @@
+TODO:
+MIT TABULATION SYSTEM
+ - scores are shared across all competitions
+	- likely because when creating a new competition, it overrides the last competition and saving it with the same competition_id
+	in the database, so it accumulates even if it is a new competition

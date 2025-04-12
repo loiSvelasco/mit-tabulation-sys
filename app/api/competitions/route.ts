@@ -23,8 +23,12 @@ export async function POST(request: NextRequest) {
     const competitionName = name || competitionData.competitionSettings.name || "Untitled Competition"
     const activeStatus = isActive !== undefined ? isActive : false
 
+    console.log("API: Request to save competition. Competition ID:", competitionId, "Name:", competitionName)
+
     // Check if we're updating an existing competition
     if (competitionId) {
+      console.log("API: Updating existing competition with ID:", competitionId)
+
       // Get the existing competition to check ownership and get the filename
       const existingCompetitions = await query("SELECT * FROM competitions WHERE id = ? AND created_by = ?", [
         competitionId,
@@ -59,7 +63,9 @@ export async function POST(request: NextRequest) {
         { status: 200 },
       )
     } else {
-      // Create a new competition (existing code)
+      // Create a new competition
+      console.log("API: Creating a new competition with name:", competitionName)
+
       // Generate filename
       const timestamp = Date.now()
       const filename = `competition_${competitionName.trim()}_${timestamp}.json`
@@ -76,6 +82,8 @@ export async function POST(request: NextRequest) {
         "INSERT INTO competitions (name, filename, created_by, is_active) VALUES (?, ?, ?, ?)",
         [competitionName, filename, userId.toString(), activeStatus],
       )
+
+      console.log("API: New competition created with ID:", result.insertId)
 
       return NextResponse.json(
         {
@@ -133,4 +141,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

@@ -1,0 +1,153 @@
+{
+  "competitionSettings": {
+    "name": "[dev_test] Mr. & Ms. SCUAA-1 2025",
+    "separateRankingByGender": true,
+    "segments": [
+      {
+        "id": "1",
+        "name": "Preliminary",
+        "advancingCandidates": 3,
+        "criteria": [
+          {
+            "id": "7c772b22-2667-4a63-8b85-d0a0b88339d7",
+            "name": "Production Number",
+            "description": "",
+            "maxScore": 10
+          },
+          {
+            "id": "40746442-c518-4dd1-87b6-2541e75dc4a9",
+            "name": "Swimwear",
+            "description": "",
+            "maxScore": 10
+          },
+          {
+            "id": "51c9a90f-b91a-4f63-ab49-0bb5c532b7c5",
+            "name": "Formal Wear",
+            "description": "",
+            "maxScore": 10
+          },
+          {
+            "id": "22d17658-5c7d-495c-a98e-206aa62ca38c",
+            "name": "Beauty of Face and Figure",
+            "description": "",
+            "maxScore": 40
+          },
+          {
+            "id": "4752a611-a1f4-4bb6-9d47-a9e8e3192ef6",
+            "name": "Q&A",
+            "description": "",
+            "maxScore": 30
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Finals",
+        "advancingCandidates": 0,
+        "criteria": [
+          {
+            "id": "174fe3ef-0045-46f4-83de-7ccd082789b0",
+            "name": "Beauty of Face and Figure",
+            "description": "",
+            "maxScore": 50
+          },
+          {
+            "id": "025cd1a6-2268-4113-9ffa-c650239e7b3a",
+            "name": "Q&A",
+            "description": "",
+            "maxScore": 50
+          }
+        ]
+      }
+    ],
+    "ranking": {
+      "method": "rank-avg-rank",
+      "tiebreaker": "head-to-head",
+      "useSegmentWeights": false,
+      "trimPercentage": 40,
+      "segmentWeights": {},
+      "tiebreakerCriterionId": "",
+      "customFormula": "max_score * 2"
+    }
+  },
+  "contestants": [
+    {
+      "id": "1",
+      "name": "DMMSU",
+      "gender": "female",
+      "currentSegmentId": "2"
+    },
+    {
+      "id": "2",
+      "name": "UNP",
+      "gender": "female",
+      "currentSegmentId": "2"
+    },
+    {
+      "id": "3",
+      "name": "MMSU",
+      "gender": "female",
+      "currentSegmentId": "2"
+    },
+    {
+      "id": "4",
+      "name": "PSU",
+      "gender": "female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "5",
+      "name": "ISPSC",
+      "gender": "female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "6",
+      "name": "DMMSU",
+      "gender": "male",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "7",
+      "name": "UNP",
+      "gender": "male",
+      "currentSegmentId": "2"
+    },
+    {
+      "id": "8",
+      "name": "MMSU",
+      "gender": "male",
+      "currentSegmentId": "2"
+    },
+    {
+      "id": "9",
+      "name": "PSU",
+      "gender": "male",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "10",
+      "name": "ISPSC",
+      "gender": "male",
+      "currentSegmentId": "2"
+    }
+  ],
+  "judges": [
+    {
+      "id": "b48d4ac0-4166-495f-abc8-aa55a1fd9500",
+      "name": "Judge 1",
+      "accessCode": "R4TTZ6"
+    },
+    {
+      "id": "3ffb2be8-b97c-4ac9-bfac-e5f4ddf35e4e",
+      "name": "Judge 2",
+      "accessCode": "44UFNY"
+    },
+    {
+      "id": "50e7e549-5815-49a2-8eb9-d5a4096b3da2",
+      "name": "Judge 3",
+      "accessCode": "Y5M94T"
+    }
+  ],
+  "scores": {}
+}

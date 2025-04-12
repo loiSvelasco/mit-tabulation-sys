@@ -108,7 +108,7 @@ interface CompetitionState {
   saveCompetition: () => Promise<void>
   loadCompetition: (competitionId: number) => Promise<void>
   loadScores: (competitionId: number) => Promise<void> // New method to load scores from DB
-  exportAllData: () => string
+  exportAllData: () => Promise<string>
   importAllData: (jsonData: string) => void
   exportCompetitionSettings: () => string
   importCompetitionSettings: (jsonData: string) => void
@@ -116,8 +116,8 @@ interface CompetitionState {
   importContestants: (jsonData: string) => void
   exportJudges: () => string
   importJudges: (jsonData: string) => void
-  exportScores: () => string
-  importScores: (jsonData: string) => void
+  exportScores: () => Promise<string>
+  importScores: (jsonData: string) => Promise<void>
   setSelectedCompetitionId: (id: number | null) => void
 }
 
@@ -476,18 +476,31 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
     }
   },
 
-  updateRankingConfig: (config) =>
-    set((state) => ({
-      competitionSettings: {
+  updateRankingConfig: (config) => {
+    console.log("Store: Updating ranking config with:", config)
+    console.log("Store: Current ranking config:", get().competitionSettings.ranking)
+
+    set((state) => {
+      const newConfig = {
         ...state.competitionSettings,
         ranking: {
           ...state.competitionSettings.ranking,
           ...config,
         },
-      },
-    })),
+      }
 
-  // MODIFIED: Update saveCompetition to handle scores separately
+      console.log("Store: New ranking config will be:", newConfig.ranking)
+
+      return {
+        competitionSettings: newConfig,
+      }
+    })
+
+    // Log the updated config after the state change
+    console.log("Store: Updated ranking config is now:", get().competitionSettings.ranking)
+  },
+
+  // MODIFIED: Update saveCompetition to properly handle new competitions
   saveCompetition: async () => {
     set({ isSaving: true })
 
@@ -501,6 +514,16 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         scores: {},
       }
 
+      // Check if we're updating an existing competition or creating a new one
+      const isNewCompetition = !state.selectedCompetitionId
+
+      // If creating a new competition, clear the selectedCompetitionId to ensure a new one is created
+      if (isNewCompetition) {
+        console.log("Creating a new competition")
+      } else {
+        console.log("Updating existing competition:", state.selectedCompetitionId)
+      }
+
       const response = await fetch("/api/competitions", {
         method: "POST",
         headers: {
@@ -509,7 +532,8 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         body: JSON.stringify({
           competitionData,
           name: state.competitionSettings.name,
-          competitionId: state.selectedCompetitionId,
+          // Only pass competitionId if we're updating an existing competition
+          competitionId: isNewCompetition ? null : state.selectedCompetitionId,
         }),
       })
 
@@ -521,7 +545,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const result = await response.json()
 
       // If this was a new competition, store its ID for future updates
-      if (!state.selectedCompetitionId && result.id) {
+      if (isNewCompetition && result.id) {
         set({ selectedCompetitionId: result.id })
 
         // If we have scores in memory, save them to the database for the new competition

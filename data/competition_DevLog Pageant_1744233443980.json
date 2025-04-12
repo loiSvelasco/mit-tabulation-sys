@@ -1,0 +1,143 @@
+{
+  "competitionSettings": {
+    "name": "DevLog Pageant",
+    "separateRankingByGender": false,
+    "segments": [
+      {
+        "id": "1",
+        "name": "Preliminary",
+        "advancingCandidates": 5,
+        "criteria": [
+          {
+            "id": "38cfe650-23a9-4613-9420-f29b701c530f",
+            "name": "Beauty",
+            "description": "Overall Physical Appearance",
+            "maxScore": 30
+          },
+          {
+            "id": "26c98b1b-f5d0-4cef-9349-62dd5302757e",
+            "name": "Swimsuit",
+            "description": "Summer Attire",
+            "maxScore": 20
+          },
+          {
+            "id": "d30e0346-8694-44c8-a430-f32cd54c184d",
+            "name": "Formal Wear",
+            "description": "Evening Gown",
+            "maxScore": 20
+          },
+          {
+            "id": "3a3eb14b-81ca-4c3b-b8b4-68c3c8f794ee",
+            "name": "Q&A",
+            "description": "Wit and Intelligence",
+            "maxScore": 30
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Final",
+        "advancingCandidates": 3,
+        "criteria": [
+          {
+            "id": "770d1856-2a7b-4d30-b9d3-b069d001de40",
+            "name": "Beauty",
+            "description": "Overall Physical Appearance",
+            "maxScore": 50
+          },
+          {
+            "id": "5816702c-94c9-4162-9e98-46f12cfa578d",
+            "name": "Q&A",
+            "description": "Wit and Intelligence",
+            "maxScore": 50
+          }
+        ]
+      }
+    ],
+    "ranking": {
+      "method": "avg",
+      "tiebreaker": "highest-score",
+      "useSegmentWeights": false
+    }
+  },
+  "contestants": [
+    {
+      "id": "1",
+      "name": "Candidate 1",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "2",
+      "name": "Candidate 2",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "3",
+      "name": "Candidate 3",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "4",
+      "name": "Candidate 4",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "5",
+      "name": "Candidate 5",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "6",
+      "name": "Candidate 6",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "7",
+      "name": "Candidate 7",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "8",
+      "name": "Candidate 8",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "9",
+      "name": "Candidate 9",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    },
+    {
+      "id": "10",
+      "name": "Candidate 10",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    }
+  ],
+  "judges": [
+    {
+      "id": "a6774c84-2cce-4d8c-b5a8-0e6bd0fecf4c",
+      "name": "Judge 1",
+      "accessCode": "6N3GG7"
+    },
+    {
+      "id": "628fd605-8d7b-4a67-bc0b-cb11bde6192d",
+      "name": "Judge 2",
+      "accessCode": "AM96PY"
+    },
+    {
+      "id": "04d513ca-d422-45a3-968a-dd7f95779825",
+      "name": "Judge 3",
+      "accessCode": "8EVWE7"
+    }
+  ],
+  "scores": {}
+}

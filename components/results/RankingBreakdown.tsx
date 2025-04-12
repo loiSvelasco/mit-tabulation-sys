@@ -3,10 +3,10 @@
 import type React from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { convertScoresToRanks } from "@/utils/rankingUtils"
+import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info } from "lucide-react"
-import { calculateSegmentScores } from "@/utils/rankingUtils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Props {
   segmentId: string
@@ -19,48 +19,15 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
   // Get contestants in the selected segment
   const segmentContestants = contestants.filter((c) => c.currentSegmentId === segmentId)
 
-  // Group contestants by gender if needed
-  const groupedContestants = separateByGender
-    ? {
-        Male: segmentContestants.filter((c) => c.gender === "Male"),
-        Female: segmentContestants.filter((c) => c.gender === "Female"),
-      }
-    : { All: segmentContestants }
+  // Group contestants by gender - using case-insensitive comparison
+  const maleContestants = segmentContestants.filter((c) => c.gender?.toLowerCase() === "male")
+  const femaleContestants = segmentContestants.filter((c) => c.gender?.toLowerCase() === "female")
 
-  // Calculate rankings for each group
-  const groupRankings: Record<string, Record<string, { score: number; rank: number }>> = {}
-
-  Object.entries(groupedContestants).forEach(([group, groupContestants]) => {
-    groupRankings[group] = calculateSegmentScores(
-      groupContestants,
-      judges,
-      scores,
-      segmentId,
-      competitionSettings.ranking,
-    )
-  })
-
-  // For each judge, calculate their individual rankings
-  const judgeRankings: Record<string, Record<string, Record<string, number>>> = {}
-
-  Object.entries(groupedContestants).forEach(([group, groupContestants]) => {
-    judgeRankings[group] = {}
-
-    judges.forEach((judge) => {
-      const judgeScores: Record<string, number> = {}
-
-      groupContestants.forEach((contestant) => {
-        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
-            (sum, score) => sum + score,
-            0,
-          )
-        }
-      })
-
-      judgeRankings[group][judge.id] = convertScoresToRanks(judgeScores)
-    })
-  })
+  // Add debug logging
+  console.log("RankingBreakdown - Separate by gender:", separateByGender)
+  console.log("RankingBreakdown - Male contestants:", maleContestants.length)
+  console.log("RankingBreakdown - Female contestants:", femaleContestants.length)
+  console.log("RankingBreakdown - All contestants:", segmentContestants.length)
 
   // Get ranking method description
   const getRankingMethodDescription = () => {
@@ -88,6 +55,89 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
     }
   }
 
+  // Render breakdown table for a specific group of contestants
+  const renderBreakdownTable = (contestantsGroup: typeof segmentContestants, groupTitle?: string) => {
+    // Calculate rankings
+    const rankings = calculateSegmentScores(contestantsGroup, judges, scores, segmentId, competitionSettings.ranking)
+
+    // For each judge, calculate their individual rankings
+    const judgeRankings: Record<string, Record<string, number>> = {}
+
+    judges.forEach((judge) => {
+      const judgeScores: Record<string, number> = {}
+
+      contestantsGroup.forEach((contestant) => {
+        // Get total score from this judge for this contestant
+        let totalScore = 0
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+          totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+        }
+        judgeScores[contestant.id] = totalScore
+      })
+
+      judgeRankings[judge.id] = convertScoresToRanks(judgeScores)
+    })
+
+    return (
+      <div className="mb-6">
+        {groupTitle && <h3 className="text-md font-semibold mb-2">{groupTitle}</h3>}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Contestant</TableHead>
+              {judges.map((judge) => (
+                <TableHead key={judge.id}>
+                  {judge.name}
+                  <br />
+                  <span className="text-xs font-normal">(Score / Rank)</span>
+                </TableHead>
+              ))}
+              <TableHead>Final Score</TableHead>
+              <TableHead>Final Rank</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {contestantsGroup.length > 0 ? (
+              [...contestantsGroup]
+                .sort((a, b) => {
+                  const rankA = rankings[a.id]?.rank || 0
+                  const rankB = rankings[b.id]?.rank || 0
+                  return rankA - rankB
+                })
+                .map((contestant) => (
+                  <TableRow key={contestant.id}>
+                    <TableCell>{contestant.name}</TableCell>
+                    {judges.map((judge) => {
+                      // Get total score from this judge for this contestant
+                      let score = 0
+                      if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+                        score = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, s) => sum + s, 0)
+                      }
+                      const rank = judgeRankings[judge.id]?.[contestant.id] || "-"
+
+                      return (
+                        <TableCell key={judge.id}>
+                          {score} / {rank}
+                        </TableCell>
+                      )
+                    })}
+                    <TableCell className="font-medium">{rankings[contestant.id]?.score.toFixed(2) || "0.00"}</TableCell>
+                    <TableCell className="font-medium">{rankings[contestant.id]?.rank || "-"}</TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={judges.length + 3} className="text-center py-4 text-muted-foreground">
+                  No contestants in this category
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    )
+  }
+
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Ranking Breakdown</h2>
@@ -101,64 +151,18 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
         </AlertDescription>
       </Alert>
 
-      {Object.entries(groupedContestants).map(([group, groupContestants]) => (
-        <div key={group} className="mb-6">
-          <h3 className="font-semibold mb-2">{separateByGender ? `${group} Division` : "Overall"}</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Contestant</TableHead>
-                {judges.map((judge) => (
-                  <TableHead key={judge.id}>
-                    {judge.name}
-                    <br />
-                    <span className="text-xs font-normal">(Score / Rank)</span>
-                  </TableHead>
-                ))}
-                <TableHead>Final Score</TableHead>
-                <TableHead>Final Rank</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupContestants
-                .sort((a, b) => {
-                  const rankA = groupRankings[group][a.id]?.rank || 0
-                  const rankB = groupRankings[group][b.id]?.rank || 0
-                  console.log(`Sorting ${a.name}: Rank ${rankA} vs ${b.name}: Rank ${rankB}`)
-                  return rankA - rankB
-                })
-                .map((contestant) => (
-                  <TableRow key={contestant.id}>
-                    <TableCell>{contestant.name}</TableCell>
-                    {judges.map((judge) => {
-                      const score = scores[segmentId]?.[contestant.id]?.[judge.id]
-                        ? Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, s) => sum + s, 0)
-                        : 0
-                      const rank = judgeRankings[group][judge.id]?.[contestant.id] || "-"
-
-                      return (
-                        <TableCell key={judge.id}>
-                          {score} / {rank}
-                        </TableCell>
-                      )
-                    })}
-                    <TableCell className="font-medium">
-                      {groupRankings[group][contestant.id]?.score.toFixed(2) || "0.00"}
-                    </TableCell>
-                    <TableCell className="font-medium">{groupRankings[group][contestant.id]?.rank || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              {groupContestants.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={judges.length + 3} className="text-center py-4 text-muted-foreground">
-                    No contestants in this group
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      ))}
+      {separateByGender ? (
+        <Tabs defaultValue="male" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="male">Male ({maleContestants.length})</TabsTrigger>
+            <TabsTrigger value="female">Female ({femaleContestants.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="male">{renderBreakdownTable(maleContestants)}</TabsContent>
+          <TabsContent value="female">{renderBreakdownTable(femaleContestants)}</TabsContent>
+        </Tabs>
+      ) : (
+        renderBreakdownTable(segmentContestants)
+      )}
     </div>
   )
 }
