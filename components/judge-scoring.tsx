@@ -87,6 +87,11 @@ const JudgeScoring = () => {
     setShowAccessCodes((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  function capitalizeFirstLetter(s: string) {
+    const result = s.replace(/([A-Z])/g, ' $1');
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* Contestants Management */}
@@ -143,7 +148,7 @@ const JudgeScoring = () => {
                       />
                       ) : contestant.name }
                     </TableCell>
-                    {competitionSettings.separateRankingByGender && <TableCell>{contestant.gender}</TableCell>}
+                    {competitionSettings.separateRankingByGender && <TableCell>{capitalizeFirstLetter(contestant.gender)}</TableCell>}
                     
                     {/* Segment Selection Dropdown */}
                     <TableCell>
