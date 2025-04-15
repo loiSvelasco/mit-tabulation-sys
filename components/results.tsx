@@ -252,17 +252,17 @@ export function Results() {
       <ActiveCriteriaManager />
 
       {/* Phase 1 Notice */}
-      <Alert>
+      {/* <Alert>
         <BarChart3 className="h-4 w-4" />
         <AlertTitle>Phase 1 Implementation</AlertTitle>
         <AlertDescription>
           This is the Phase 1 implementation of the tabulation system. In Phase 2, we will implement full per-criteria
           scoring and database integration.
         </AlertDescription>
-      </Alert>
+      </Alert> */}
 
       {/* Test Scoring Toggle */}
-      <div className="flex justify-end">
+      {/* <div className="flex justify-end">
         <Button variant={showTestScoring ? "default" : "outline"} onClick={() => setShowTestScoring(!showTestScoring)}>
           {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
         </Button>
@@ -272,7 +272,7 @@ export function Results() {
         <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
         </Button>
-      </div>
+      </div> */}
 
       {showDebug && (
         <Card className="mb-6">

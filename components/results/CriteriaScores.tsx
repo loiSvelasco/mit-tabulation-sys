@@ -4,7 +4,6 @@ import type React from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { convertScoresToRanks } from "@/utils/rankingUtils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Props {
   segmentId: string
@@ -21,12 +20,6 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
   const maleContestants = segmentContestants.filter((c) => c.gender?.toLowerCase() === "male")
   const femaleContestants = segmentContestants.filter((c) => c.gender?.toLowerCase() === "female")
 
-  // Add debug logging
-  console.log("CriteriaScores - Separate by gender:", separateByGender)
-  console.log("CriteriaScores - Male contestants:", maleContestants.length)
-  console.log("CriteriaScores - Female contestants:", femaleContestants.length)
-  console.log("CriteriaScores - All contestants:", segmentContestants.length)
-
   // Get the selected segment
   const segment = competitionSettings.segments.find((s) => s.id === segmentId)
   const criteria = segment?.criteria || []
@@ -35,22 +28,30 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
   const renderCriteriaScoresTable = (contestantsGroup: typeof segmentContestants, groupTitle?: string) => {
     // Calculate average scores per criterion for each contestant
     const criteriaScores: Record<string, Record<string, number>> = {}
+    const rawCriteriaScores: Record<string, Record<string, number[]>> = {}
 
     contestantsGroup.forEach((contestant) => {
       criteriaScores[contestant.id] = {}
+      rawCriteriaScores[contestant.id] = {}
 
       criteria.forEach((criterion) => {
         let totalScore = 0
         let count = 0
+        const rawScores: number[] = []
 
         judges.forEach((judge) => {
           if (scores[segmentId]?.[contestant.id]?.[judge.id]?.[criterion.id]) {
-            totalScore += scores[segmentId][contestant.id][judge.id][criterion.id]
+            const score = scores[segmentId][contestant.id][judge.id][criterion.id]
+            totalScore += score
             count++
+            rawScores.push(score)
+          } else {
+            rawScores.push(0)
           }
         })
 
         criteriaScores[contestant.id][criterion.id] = count > 0 ? totalScore / count : 0
+        rawCriteriaScores[contestant.id][criterion.id] = rawScores
       })
     })
 
@@ -72,56 +73,72 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
 
     return (
       <div className="mb-6">
-        {groupTitle && <h3 className="text-md font-semibold mb-2">{groupTitle}</h3>}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Rank</TableHead>
-              <TableHead>Contestant</TableHead>
-              {criteria.map((criterion) => (
-                <TableHead key={criterion.id}>
-                  {criterion.name}
-                  <br />
-                  <span className="text-xs font-normal">({criterion.maxScore} pts)</span>
-                </TableHead>
-              ))}
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedContestants.length > 0 ? (
-              sortedContestants.map((contestant) => {
-                const rank = ranks[contestant.id] || "-"
-                const total = totalScores[contestant.id] || 0
-
-                return (
-                  <TableRow key={contestant.id} className={rank === 1 ? "bg-primary/5" : ""}>
-                    <TableCell>{rank}</TableCell>
-                    <TableCell className="font-medium">{contestant.name}</TableCell>
-                    {criteria.map((criterion) => {
-                      const score = criteriaScores[contestant.id][criterion.id] || 0
-                      const percentage = criterion.maxScore > 0 ? (score / criterion.maxScore) * 100 : 0
-
-                      return (
-                        <TableCell key={criterion.id}>
-                          {score.toFixed(2)}
-                          <span className="text-xs text-muted-foreground ml-1">({percentage.toFixed(0)}%)</span>
-                        </TableCell>
-                      )
-                    })}
-                    <TableCell className="text-right font-medium">{total.toFixed(2)}</TableCell>
-                  </TableRow>
-                )
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={criteria.length + 3} className="text-center py-4 text-muted-foreground">
-                  No contestants in this category
-                </TableCell>
+        {groupTitle && (
+          <div className="bg-primary/10 px-4 py-2 rounded-t-md">
+            <h3 className="text-lg font-semibold">{groupTitle}</h3>
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <Table className="border-collapse">
+            <TableHeader>
+              <TableRow className="divide-x divide-border">
+                <TableHead className="text-center align-middle bg-muted">Rank</TableHead>
+                <TableHead className="text-center align-middle bg-muted">Contestant</TableHead>
+                {criteria.map((criterion) => (
+                  <TableHead key={criterion.id} className="text-center align-middle bg-muted">
+                    {criterion.name}
+                    <br />
+                    <span className="text-xs font-normal">({criterion.maxScore} pts)</span>
+                  </TableHead>
+                ))}
+                <TableHead className="text-center align-middle bg-muted">Total</TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody className="divide-y divide-border">
+              {sortedContestants.length > 0 ? (
+                sortedContestants.map((contestant, index) => {
+                  const rank = ranks[contestant.id] || "-"
+                  const total = totalScores[contestant.id] || 0
+                  const isEven = index % 2 === 0
+
+                  return (
+                    <TableRow
+                      key={contestant.id}
+                      className={`divide-x divide-border ${rank === 1 ? "bg-primary/5" : isEven ? "bg-muted/20" : ""}`}
+                    >
+                      <TableCell className="text-center align-middle">{rank}</TableCell>
+                      <TableCell className="text-center align-middle">{contestant.name}</TableCell>
+                      {criteria.map((criterion) => {
+                        const score = criteriaScores[contestant.id][criterion.id] || 0
+                        const rawScores = rawCriteriaScores[contestant.id][criterion.id] || []
+                        const percentage = criterion.maxScore > 0 ? (score / criterion.maxScore) * 100 : 0
+
+                        return (
+                          <TableCell key={criterion.id} className="text-center align-middle">
+                            <div>
+                              {score.toFixed(2)}
+                              <span className="text-xs text-muted-foreground ml-1">({percentage.toFixed(0)}%)</span>
+                            </div>
+                            <div className="text-xs font-mono text-muted-foreground mt-1">
+                              Raw: {rawScores.join(", ")}
+                            </div>
+                          </TableCell>
+                        )
+                      })}
+                      <TableCell className="text-center align-middle font-medium">{total.toFixed(2)}</TableCell>
+                    </TableRow>
+                  )
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={criteria.length + 3} className="text-center py-4 text-muted-foreground">
+                    No contestants in this category
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     )
   }
@@ -132,14 +149,10 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
       <p className="text-sm text-muted-foreground mb-4">Average scores per criterion across all judges</p>
 
       {separateByGender ? (
-        <Tabs defaultValue="male" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="male">Male ({maleContestants.length})</TabsTrigger>
-            <TabsTrigger value="female">Female ({femaleContestants.length})</TabsTrigger>
-          </TabsList>
-          <TabsContent value="male">{renderCriteriaScoresTable(maleContestants)}</TabsContent>
-          <TabsContent value="female">{renderCriteriaScoresTable(femaleContestants)}</TabsContent>
-        </Tabs>
+        <div className="space-y-6">
+          {maleContestants.length > 0 && renderCriteriaScoresTable(maleContestants, "Male Division")}
+          {femaleContestants.length > 0 && renderCriteriaScoresTable(femaleContestants, "Female Division")}
+        </div>
       ) : (
         renderCriteriaScoresTable(segmentContestants)
       )}

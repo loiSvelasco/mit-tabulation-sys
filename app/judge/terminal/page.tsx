@@ -20,6 +20,7 @@ export default function JudgeTerminal() {
   const [competitionName, setCompetitionName] = useState<string>("")
   const [selectedContestantId, setSelectedContestantId] = useState<string | null>(null)
   const [sessionError, setSessionError] = useState<string | null>(null)
+  const [savingScores, setSavingScores] = useState<Set<string>>(new Set())
 
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
@@ -217,7 +218,8 @@ export default function JudgeTerminal() {
     }
   }
 
-  const handleScoreChange = (segmentId: string, contestantId: string, criterionId: string, score: number) => {
+  const handleScoreChange = async (segmentId: string, contestantId: string, criterionId: string, score: number) => {
+    // Update local state first
     setCurrentScores((prev) => {
       const newScores = { ...prev }
       if (!newScores[segmentId]) {
@@ -229,28 +231,48 @@ export default function JudgeTerminal() {
       newScores[segmentId][contestantId][criterionId] = score
       return newScores
     })
-  }
 
-  const handleSaveScore = async (segmentId: string, contestantId: string, criterionId: string) => {
+    // Auto-save to database
     if (!judgeInfo) return
 
-    const score = currentScores[segmentId]?.[contestantId]?.[criterionId]
-    if (score === undefined) {
-      toast.error("Please select a score first")
-      return
-    }
+    // Mark this score as currently saving
+    const scoreKey = `${contestantId}-${criterionId}`
+    setSavingScores((prev) => new Set(prev).add(scoreKey))
 
-    // Check session before saving
-    const isSessionValid = await checkSession()
-    if (!isSessionValid) {
-      setSessionError("Your session has expired. Please log in again.")
-      setTimeout(() => router.replace("/judge/login"), 3000)
-      return
-    }
+    try {
+      // Check session before saving
+      const isSessionValid = await checkSession()
+      if (!isSessionValid) {
+        setSessionError("Your session has expired. Please log in again.")
+        setTimeout(() => router.replace("/judge/login"), 3000)
+        return
+      }
 
-    setScores(segmentId, contestantId, judgeInfo.id, criterionId, score)
-    setSavedContestants((prev) => new Set(prev).add(`${contestantId}-${criterionId}`))
-    toast.success(`Score saved for ${contestants.find((c) => c.id === contestantId)?.name}`)
+      // Save to database
+      setScores(segmentId, contestantId, judgeInfo.id, criterionId, score)
+
+      // Mark as saved
+      setSavedContestants((prev) => new Set(prev).add(scoreKey))
+
+      // Show a subtle toast notification
+      const contestantName = contestants.find((c) => c.id === contestantId)?.name || "contestant"
+      const criterionName =
+        activeCriteriaDetails.find((c) => c.criterionId === criterionId)?.criterion?.name || "criterion"
+      toast.success(`Score saved for ${contestantName}'s ${criterionName}`, {
+        duration: 1500,
+        position: "bottom-right",
+      })
+    } catch (error) {
+      console.error("Error saving score:", error)
+      toast.error("Failed to save score. Please try again.")
+    } finally {
+      // Remove from saving state
+      setSavingScores((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(scoreKey)
+        return newSet
+      })
+    }
   }
 
   const handleSaveAllScores = async () => {
@@ -449,13 +471,20 @@ export default function JudgeTerminal() {
 
                               const score = getContestantCriterionScore(contestant.id, segmentId, criterionId)
                               const isScored = savedContestants.has(`${contestant.id}-${criterionId}`)
+                              const isSaving = savingScores.has(`${contestant.id}-${criterionId}`)
 
                               return (
                                 <TableCell
                                   key={criterionId}
-                                  className={isScored ? "text-green-600 font-medium" : "text-muted-foreground"}
+                                  className={
+                                    isSaving
+                                      ? "text-amber-600 font-medium"
+                                      : isScored
+                                        ? "text-green-600 font-medium"
+                                        : "text-muted-foreground"
+                                  }
                                 >
-                                  {score}
+                                  {isSaving ? `${score}...` : score}
                                 </TableCell>
                               )
                             })}
@@ -522,6 +551,8 @@ export default function JudgeTerminal() {
                             : 0)
 
                         const isScored = savedContestants.has(`${currentContestant.id}-${criterionId}`)
+                        const isSaving = savingScores.has(`${currentContestant.id}-${criterionId}`)
+                        const scoreKey = `${currentContestant.id}-${criterionId}`
 
                         return (
                           <div key={criterionId} className="border rounded p-3 bg-card">
@@ -544,13 +575,15 @@ export default function JudgeTerminal() {
                                     handleScoreChange(segmentId, currentContestant.id, criterionId, value)
                                   }
                                 />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveScore(segmentId, currentContestant.id, criterionId)}
-                                  variant={isScored ? "outline" : "default"}
-                                >
-                                  {isScored ? "Update" : "Save"}
-                                </Button>
+                                <div className="ml-2 min-w-[80px] text-right">
+                                  {isSaving ? (
+                                    <span className="text-amber-600 text-sm">Saving...</span>
+                                  ) : isScored ? (
+                                    <span className="text-green-600 text-sm">Saved</span>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">Not saved</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -566,17 +599,7 @@ export default function JudgeTerminal() {
                     >
                       Previous Contestant
                     </Button>
-                    <Button onClick={handleSaveAllScores}>Save All & Continue</Button>
-                    <Button
-                      variant="outline"
-                      onClick={navigateToNextContestant}
-                      disabled={
-                        activeContestants.findIndex((c) => c.id === selectedContestantId) ===
-                        activeContestants.length - 1
-                      }
-                    >
-                      Next Contestant
-                    </Button>
+                    <Button onClick={handleSaveAllScores}>Continue to Next</Button>
                   </div>
                 </CardContent>
               </Card>
