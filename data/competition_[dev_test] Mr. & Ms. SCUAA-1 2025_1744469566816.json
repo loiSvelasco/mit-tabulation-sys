@@ -141,13 +141,23 @@
     {
       "id": "3ffb2be8-b97c-4ac9-bfac-e5f4ddf35e4e",
       "name": "Judge 2",
-      "accessCode": "44UFNY"
+      "accessCode": "VZTABK"
     },
     {
       "id": "50e7e549-5815-49a2-8eb9-d5a4096b3da2",
       "name": "Judge 3",
-      "accessCode": "Y5M94T"
+      "accessCode": "FBQTKZ"
     }
   ],
-  "scores": {}
+  "scores": {},
+  "activeCriteria": [
+    {
+      "segmentId": "2",
+      "criterionId": "025cd1a6-2268-4113-9ffa-c650239e7b3a"
+    },
+    {
+      "segmentId": "2",
+      "criterionId": "174fe3ef-0045-46f4-83de-7ccd082789b0"
+    }
+  ]
 }

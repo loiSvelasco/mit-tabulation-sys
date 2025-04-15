@@ -3,7 +3,7 @@ import { admin } from "better-auth/plugins/admin"
 import { createPool } from "mysql2/promise"
 import jwt from "jsonwebtoken"
 import { cookies, headers } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 // Interface for the JWT payload
 export interface TokenPayload {
@@ -12,6 +12,7 @@ export interface TokenPayload {
   email?: string
   role?: string
   name?: string
+  competitionId?: number // Add competitionId to the token payload
   iat?: number
   exp?: number
 }
@@ -46,6 +47,9 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     // Verify the token using the JWT_SECRET environment variable
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as TokenPayload
 
+    // Add console log to debug
+    console.log("Decoded token:", decoded)
+
     if (!decoded || !decoded.id) {
       return null
     }
@@ -64,48 +68,36 @@ export function createToken(payload: Omit<TokenPayload, "iat" | "exp">): string 
   })
 }
 
-// Get the current user from the request
-// export async function getCurrentUser(req: NextRequest) {
-//   const cookieStore = await cookies()
-//   const token = cookieStore.get("better-auth.session_token")?.value
-
-//   if (!token) {
-//     return null
-//   }
-
-//   return await verifyToken(token)
-// }
-
 // Modified getCurrentUser function for auth.ts
 export async function getCurrentUser(req: NextRequest) {
   const cookieStore = await cookies()
-  
+
   // Look for the BetterAuth session token instead of auth-token
   const token = cookieStore.get("better-auth.session_token")?.value
-  
+
   if (!token) {
     return null
   }
-  
+
   // You'll need to modify this part to work with BetterAuth's token format
   // BetterAuth likely has its own way to verify the session
-  
+
   // For now, let's try to use your existing auth handler
   try {
     // Use BetterAuth's session verification instead of your custom JWT verification
     const session = await auth.api.getSession({
-      headers: await headers()
+      headers: await headers(),
     })
-    
+
     if (!session || !session.user) {
       return null
     }
-    
+
     // Return the user data from the session
     return {
       id: session.user.id,
       email: session.user.email,
-      role: session.user.role || 'user',
+      role: session.user.role || "user",
       // Add other fields as needed
     }
   } catch (error) {
@@ -157,4 +149,3 @@ export async function judgeMiddleware(req: NextRequest) {
 
 // Export the auth client for use in components
 export const authClient = auth.client
-

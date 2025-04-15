@@ -126,18 +126,28 @@
     {
       "id": "a6774c84-2cce-4d8c-b5a8-0e6bd0fecf4c",
       "name": "Judge 1",
-      "accessCode": "6N3GG7"
+      "accessCode": "9C5XZH"
     },
     {
       "id": "628fd605-8d7b-4a67-bc0b-cb11bde6192d",
       "name": "Judge 2",
-      "accessCode": "AM96PY"
+      "accessCode": "LXMZYG"
     },
     {
       "id": "04d513ca-d422-45a3-968a-dd7f95779825",
       "name": "Judge 3",
-      "accessCode": "8EVWE7"
+      "accessCode": "AG5WYU"
     }
   ],
-  "scores": {}
+  "scores": {},
+  "activeCriteria": [
+    {
+      "segmentId": "1",
+      "criterionId": "38cfe650-23a9-4613-9420-f29b701c530f"
+    },
+    {
+      "segmentId": "1",
+      "criterionId": "3a3eb14b-81ca-4c3b-b8b4-68c3c8f794ee"
+    }
+  ]
 }

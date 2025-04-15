@@ -17,6 +17,7 @@ import useCompetitionStore from "@/utils/useCompetitionStore"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+// import { SyncJudgesButton } from "@/components/admin/sync-judges-button"
 
 interface Competition {
   id: number
@@ -198,119 +199,124 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <span className="inline-flex items-center gap-2 text-2xl font-bold">
-          {isCreatingNew ? "New Competition" : "Setup Competition"}
-        </span>
-        <div className="flex items-center gap-4">
-          {competitions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedCompetition?.toString() || ""}
-                onValueChange={(value) => setSelectedCompetition(Number.parseInt(value))}
-                disabled={isLoadingCompetition || isCreatingNew}
-              >
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Select a competition" />
-                </SelectTrigger>
-                <SelectContent>
-                  {competitions.map((comp) => (
-                    <SelectItem key={comp.id} value={comp.id.toString()}>
-                      {comp.name} {comp.is_active && "(Active)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <Button
-            variant={isCreatingNew ? "destructive" : "outline"}
-            onClick={isCreatingNew ? handleCancelCreate : handleCreateNew}
-            disabled={isLoadingCompetition}
-            className="flex items-center gap-2"
-          >
-            {isCreatingNew ? (
-              <>
-                <X size={16} />
-                Cancel
-              </>
-            ) : (
-              <>
-                <PlusCircle size={16} />
-                Create New
-              </>
+    <div>
+      {/* Your existing dashboard content */}
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <span className="inline-flex items-center gap-2 text-2xl font-bold">
+            {isCreatingNew ? "New Competition" : "Setup Competition"}
+          </span>
+          <div className="flex items-center gap-4">
+            {competitions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedCompetition?.toString() || ""}
+                  onValueChange={(value) => setSelectedCompetition(Number.parseInt(value))}
+                  disabled={isLoadingCompetition || isCreatingNew}
+                >
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="Select a competition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitions.map((comp) => (
+                      <SelectItem key={comp.id} value={comp.id.toString()}>
+                        {comp.name} {comp.is_active && "(Active)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-          </Button>
 
-          <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
-            <Save size={16} />
-            {isSaving ? "Saving..." : "Save Competition"}
-          </Button>
+            <Button
+              variant={isCreatingNew ? "destructive" : "outline"}
+              onClick={isCreatingNew ? handleCancelCreate : handleCreateNew}
+              disabled={isLoadingCompetition}
+              className="flex items-center gap-2"
+            >
+              {isCreatingNew ? (
+                <>
+                  <X size={16} />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <PlusCircle size={16} />
+                  Create New
+                </>
+              )}
+            </Button>
 
-          <Button asChild>
-            <Link href="/judge">
-              <LaptopMinimalCheck className="mr-2 h-4 w-4" /> View Judge Dashboard
-            </Link>
-          </Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
+              <Save size={16} />
+              {isSaving ? "Saving..." : "Save Competition"}
+            </Button>
+
+            {/* {selectedCompetition && <SyncJudgesButton competitionId={selectedCompetition} />} */}
+
+            <Button asChild>
+              <Link href="/judge">
+                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> View Judge Dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
+
+        {lastSaved && (
+          <div className="flex items-center text-sm text-muted-foreground mb-4">
+            <Clock size={14} className="mr-1" />
+            Last saved: {format(lastSaved, "PPpp")}
+          </div>
+        )}
+
+        {isCreatingNew && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+            <p className="text-blue-700">
+              You are creating a new competition. Configure the settings and click "Save Competition" when done.
+            </p>
+          </div>
+        )}
+
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid grid-cols-5 mb-8">
+            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="settings">
+              Competition Settings
+            </TabsTrigger>
+            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="scoring">
+              Contestants & Judges
+            </TabsTrigger>
+            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="ranking">
+              Ranking Configuration
+            </TabsTrigger>
+            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="results">
+              Results
+            </TabsTrigger>
+            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="data">
+              Data Management
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="settings">
+            <CompetitionSettings />
+          </TabsContent>
+
+          <TabsContent value="scoring">
+            <JudgeScoring />
+          </TabsContent>
+
+          <TabsContent value="ranking">
+            <RankingConfiguration />
+          </TabsContent>
+
+          <TabsContent value="results">
+            <Results />
+          </TabsContent>
+
+          <TabsContent value="data">
+            <DataManagement />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      {lastSaved && (
-        <div className="flex items-center text-sm text-muted-foreground mb-4">
-          <Clock size={14} className="mr-1" />
-          Last saved: {format(lastSaved, "PPpp")}
-        </div>
-      )}
-
-      {isCreatingNew && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
-          <p className="text-blue-700">
-            You are creating a new competition. Configure the settings and click "Save Competition" when done.
-          </p>
-        </div>
-      )}
-
-      <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid grid-cols-5 mb-8">
-          <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="settings">
-            Competition Settings
-          </TabsTrigger>
-          <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="scoring">
-            Contestants & Judges
-          </TabsTrigger>
-          <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="ranking">
-            Ranking Configuration
-          </TabsTrigger>
-          <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="results">
-            Results
-          </TabsTrigger>
-          <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="data">
-            Data Management
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="settings">
-          <CompetitionSettings />
-        </TabsContent>
-
-        <TabsContent value="scoring">
-          <JudgeScoring />
-        </TabsContent>
-
-        <TabsContent value="ranking">
-          <RankingConfiguration />
-        </TabsContent>
-
-        <TabsContent value="results">
-          <Results />
-        </TabsContent>
-
-        <TabsContent value="data">
-          <DataManagement />
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

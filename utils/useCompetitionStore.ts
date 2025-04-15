@@ -60,6 +60,12 @@ export interface RankingConfig {
   customFormula?: string
 }
 
+// Define active criteria type
+export interface ActiveCriterion {
+  segmentId: string
+  criterionId: string
+}
+
 interface CompetitionSettings {
   name: string
   separateRankingByGender: boolean
@@ -74,8 +80,10 @@ export interface CompetitionData {
   contestants: Contestant[]
   judges: Judge[]
   scores: Record<string, Record<string, Record<string, Record<string, number>>>>
+  activeCriteria?: ActiveCriterion[] // Add this to export/import active criteria
 }
 
+// Add these to your existing CompetitionState interface
 interface CompetitionState {
   competitionSettings: CompetitionSettings
   contestants: Contestant[]
@@ -85,6 +93,10 @@ interface CompetitionState {
   isSaving: boolean
   lastSaved: Date | null
   selectedCompetitionId: number | null
+
+  // Replace single active segment/criterion with array of active criteria
+  activeCriteria: ActiveCriterion[]
+
   setCompetitionSettings: (settings: CompetitionSettings) => void
   addSegment: (name: string) => void
   removeSegment: (segmentId: string) => void
@@ -119,8 +131,14 @@ interface CompetitionState {
   exportScores: () => Promise<string>
   importScores: (jsonData: string) => Promise<void>
   setSelectedCompetitionId: (id: number | null) => void
+
+  // Replace single active segment/criterion methods with these
+  toggleActiveCriterion: (segmentId: string, criterionId: string) => void
+  isActiveCriterion: (segmentId: string, criterionId: string) => boolean
+  clearActiveCriteria: () => void
 }
 
+// Add these to your store implementation
 const useCompetitionStore = create<CompetitionState>((set, get) => ({
   competitionSettings: {
     name: "Beauty Pageant",
@@ -268,6 +286,9 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
   lastSaved: null,
   selectedCompetitionId: null,
 
+  // Replace single active segment/criterion with array
+  activeCriteria: [],
+
   setCompetitionSettings: (settings) => set({ competitionSettings: settings }),
   setSelectedCompetitionId: (id) => set({ selectedCompetitionId: id }),
 
@@ -297,6 +318,8 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         ...state.competitionSettings,
         segments: state.competitionSettings.segments.filter((s) => s.id !== segmentId),
       },
+      // Also remove any active criteria for this segment
+      activeCriteria: state.activeCriteria.filter((ac) => ac.segmentId !== segmentId),
     })),
 
   addCriterion: (segmentId, criterion) =>
@@ -317,6 +340,10 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
           s.id === segmentId ? { ...s, criteria: s.criteria.filter((c) => c.id !== criterionId) } : s,
         ),
       },
+      // Also remove this criterion from active criteria if it exists
+      activeCriteria: state.activeCriteria.filter(
+        (ac) => !(ac.segmentId === segmentId && ac.criterionId === criterionId),
+      ),
     })),
 
   addContestant: (name, gender = "Female") =>
@@ -512,6 +539,8 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         judges: state.judges,
         // Don't include scores here, they're saved separately
         scores: {},
+        // Include active criteria
+        activeCriteria: state.activeCriteria,
       }
 
       // Check if we're updating an existing competition or creating a new one
@@ -586,6 +615,8 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         // Don't set scores here, we'll load them separately
         lastSaved: new Date(),
         selectedCompetitionId: competitionId,
+        // Load active criteria if available
+        activeCriteria: competitionData.activeCriteria || [],
       })
 
       // Load scores from database
@@ -622,6 +653,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       contestants: state.contestants,
       judges: state.judges,
       scores: scores,
+      activeCriteria: state.activeCriteria,
     }
 
     return JSON.stringify(competitionData, null, 2)
@@ -635,6 +667,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         contestants: data.contestants,
         judges: data.judges,
         scores: data.scores,
+        activeCriteria: data.activeCriteria || [],
       })
 
       // If we have a selected competition, save the imported scores to the database
@@ -757,6 +790,35 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       console.error("Error importing scores:", error)
       throw new Error("Invalid scores format")
     }
+  },
+
+  // Replace single active segment/criterion methods with these
+  toggleActiveCriterion: (segmentId, criterionId) => {
+    set((state) => {
+      const isActive = state.activeCriteria.some((ac) => ac.segmentId === segmentId && ac.criterionId === criterionId)
+
+      if (isActive) {
+        // Remove if already active
+        return {
+          activeCriteria: state.activeCriteria.filter(
+            (ac) => !(ac.segmentId === segmentId && ac.criterionId === criterionId),
+          ),
+        }
+      } else {
+        // Add if not active
+        return {
+          activeCriteria: [...state.activeCriteria, { segmentId, criterionId }],
+        }
+      }
+    })
+  },
+
+  isActiveCriterion: (segmentId, criterionId) => {
+    return get().activeCriteria.some((ac) => ac.segmentId === segmentId && ac.criterionId === criterionId)
+  },
+
+  clearActiveCriteria: () => {
+    set({ activeCriteria: [] })
   },
 }))
 

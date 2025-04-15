@@ -16,13 +16,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { calculateSegmentScores } from "@/utils/rankingUtils"
+import { useState } from "react"
+import { ActiveCriteriaManager } from "@/components/admin/active-criteria-manager"
 
-const Results = () => {
+export function Results() {
   const { competitionSettings, contestants, updateContestantSegment, scores, judges, setScores } = useCompetitionStore()
   const { segments } = competitionSettings
   const [selectedSegmentId, setSelectedSegmentId] = React.useState<string>(segments[0]?.id || "no-segments")
   const [activeContentTab, setActiveContentTab] = React.useState<string>("overview")
   const [showTestScoring, setShowTestScoring] = React.useState(false)
+  const [activeTab, setActiveTab] = useState("final-rankings")
 
   // Add a debug panel to help troubleshoot score issues
   const [showDebug, setShowDebug] = React.useState(false)
@@ -244,7 +247,10 @@ const Results = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Add the Active Criteria Manager at the top of the Results component */}
+      <ActiveCriteriaManager />
+
       {/* Phase 1 Notice */}
       <Alert>
         <BarChart3 className="h-4 w-4" />
@@ -360,47 +366,28 @@ const Results = () => {
       </Card>
 
       {/* Results Tabs */}
-      <Tabs value={activeContentTab} onValueChange={setActiveContentTab}>
-        <TabsList className="grid grid-cols-3">
-          <TabsTrigger value="overview">Rankings</TabsTrigger>
-          <TabsTrigger value="detailed">Detailed Scores</TabsTrigger>
-          <TabsTrigger value="criteria">Criteria Breakdown</TabsTrigger>
+      <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
+          <TabsTrigger value="ranking-breakdown">Ranking Breakdown</TabsTrigger>
+          <TabsTrigger value="detailed-scores">Detailed Scores</TabsTrigger>
+          <TabsTrigger value="judge-comparison">Judge Comparison</TabsTrigger>
+          <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-4 mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <FinalRankings segmentId={selectedSegmentId} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <RankingBreakdown segmentId={selectedSegmentId} />
-            </CardContent>
-          </Card>
+        <TabsContent value="final-rankings">
+          <FinalRankings segmentId={selectedSegmentId} />
         </TabsContent>
-
-        <TabsContent value="detailed" className="space-y-4 mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <DetailedScores segmentId={selectedSegmentId} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <JudgeComparison segmentId={selectedSegmentId} />
-            </CardContent>
-          </Card>
+        <TabsContent value="ranking-breakdown">
+          <RankingBreakdown segmentId={selectedSegmentId} />
         </TabsContent>
-
-        <TabsContent value="criteria" className="space-y-4 mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <CriteriaScores segmentId={selectedSegmentId} />
-            </CardContent>
-          </Card>
+        <TabsContent value="detailed-scores">
+          <DetailedScores segmentId={selectedSegmentId} />
+        </TabsContent>
+        <TabsContent value="judge-comparison">
+          <JudgeComparison segmentId={selectedSegmentId} />
+        </TabsContent>
+        <TabsContent value="criteria-scores">
+          <CriteriaScores segmentId={selectedSegmentId} />
         </TabsContent>
       </Tabs>
     </div>
