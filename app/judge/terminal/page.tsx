@@ -9,8 +9,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DashboardHeader } from "@/components/judge/dashboard-header"
 import { JudgeScoreDropdown } from "@/components/judge/judge-score-dropdown"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { ChevronLeft, ChevronRight, Trophy, CheckCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Trophy, CheckCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function JudgeTerminal() {
   const router = useRouter()
@@ -21,6 +31,8 @@ export default function JudgeTerminal() {
   const [selectedContestantId, setSelectedContestantId] = useState<string | null>(null)
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [savingScores, setSavingScores] = useState<Set<string>>(new Set())
+  const [isFinalized, setIsFinalized] = useState(false)
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false)
 
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
@@ -48,6 +60,11 @@ export default function JudgeTerminal() {
   // Track scores for the current criteria
   const [currentScores, setCurrentScores] = useState<Record<string, Record<string, number>>>({})
   const [savedContestants, setSavedContestants] = useState<Set<string>>(new Set())
+
+  // Check if current contestant is the last one
+  const isLastContestant = selectedContestantId
+    ? activeContestants.findIndex((c) => c.id === selectedContestantId) === activeContestants.length - 1
+    : false
 
   // Session check function
   const checkSession = useCallback(async () => {
@@ -219,6 +236,9 @@ export default function JudgeTerminal() {
   }
 
   const handleScoreChange = async (segmentId: string, contestantId: string, criterionId: string, score: number) => {
+    // Don't allow changes if scores are finalized
+    if (isFinalized) return
+
     // Update local state first
     setCurrentScores((prev) => {
       const newScores = { ...prev }
@@ -275,17 +295,10 @@ export default function JudgeTerminal() {
     }
   }
 
-  const handleSaveAllScores = async () => {
+  const handleContinueOrFinalize = async () => {
     if (!judgeInfo || !selectedContestantId) return
 
-    // Check session before saving
-    const isSessionValid = await checkSession()
-    if (!isSessionValid) {
-      setSessionError("Your session has expired. Please log in again.")
-      setTimeout(() => router.replace("/judge/login"), 3000)
-      return
-    }
-
+    // Check if all criteria are scored for the current contestant
     const unsavedCriteria = activeCriteria.filter(({ segmentId, criterionId }) => {
       const contestant = activeContestants.find((c) => c.id === selectedContestantId)
       if (!contestant || contestant.currentSegmentId !== segmentId) return false
@@ -298,25 +311,51 @@ export default function JudgeTerminal() {
       return
     }
 
-    activeCriteria.forEach(({ segmentId, criterionId }) => {
-      const contestant = activeContestants.find((c) => c.id === selectedContestantId)
-      if (!contestant || contestant.currentSegmentId !== segmentId) return
+    // If this is the last contestant, show finalize dialog
+    if (isLastContestant) {
+      setShowFinalizeDialog(true)
+    } else {
+      // Otherwise, save scores and move to next contestant
+      navigateToNextContestant()
+    }
+  }
 
-      const score = currentScores[segmentId]?.[selectedContestantId]?.[criterionId]
-      if (score !== undefined) {
-        setScores(segmentId, selectedContestantId, judgeInfo.id, criterionId, score)
-        setSavedContestants((prev) => new Set(prev).add(`${selectedContestantId}-${criterionId}`))
-      }
+  const handleFinalizeScores = async () => {
+    // Check session before finalizing
+    const isSessionValid = await checkSession()
+    if (!isSessionValid) {
+      setSessionError("Your session has expired. Please log in again.")
+      setTimeout(() => router.replace("/judge/login"), 3000)
+      return
+    }
+
+    // Make sure all scores are saved
+    if (judgeInfo) {
+      activeCriteria.forEach(({ segmentId, criterionId }) => {
+        activeContestants.forEach((contestant) => {
+          if (contestant.currentSegmentId !== segmentId) return
+
+          const score = currentScores[segmentId]?.[contestant.id]?.[criterionId]
+          if (score !== undefined) {
+            setScores(segmentId, contestant.id, judgeInfo.id, criterionId, score)
+            setSavedContestants((prev) => new Set(prev).add(`${contestant.id}-${criterionId}`))
+          }
+        })
+      })
+    }
+
+    // Mark scores as finalized
+    setIsFinalized(true)
+    setShowFinalizeDialog(false)
+
+    // Show success message
+    toast.success("Your scores have been finalized successfully!", {
+      duration: 3000,
     })
-
-    toast.success("All scores saved successfully")
-
-    // Move to next contestant if available
-    navigateToNextContestant()
   }
 
   const navigateToPreviousContestant = () => {
-    if (!selectedContestantId) return
+    if (!selectedContestantId || isFinalized) return
 
     const currentIndex = activeContestants.findIndex((c) => c.id === selectedContestantId)
     if (currentIndex > 0) {
@@ -325,7 +364,7 @@ export default function JudgeTerminal() {
   }
 
   const navigateToNextContestant = () => {
-    if (!selectedContestantId) return
+    if (!selectedContestantId || isFinalized) return
 
     const currentIndex = activeContestants.findIndex((c) => c.id === selectedContestantId)
     if (currentIndex < activeContestants.length - 1) {
@@ -402,6 +441,28 @@ export default function JudgeTerminal() {
     <div className="min-h-screen bg-muted/30">
       <DashboardHeader judgeName={judgeInfo?.name || "Judge"} onLogout={handleLogout} />
 
+      {/* Finalize Confirmation Dialog */}
+      <AlertDialog open={showFinalizeDialog} onOpenChange={setShowFinalizeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Finalize Your Scores
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to finalize your scores? Once finalized, you will not be able to edit any of your
+              scores for this competition.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFinalizeScores} className="bg-primary">
+              Yes, Finalize My Scores
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Welcome Banner with Competition Info */}
       <div className="bg-primary/10 py-4 px-4 mb-6">
         <div className="container mx-auto">
@@ -459,7 +520,7 @@ export default function JudgeTerminal() {
                           <TableRow
                             key={contestant.id}
                             className={`cursor-pointer ${isSelected ? "bg-primary/10" : ""}`}
-                            onClick={() => setSelectedContestantId(contestant.id)}
+                            onClick={() => !isFinalized && setSelectedContestantId(contestant.id)}
                           >
                             <TableCell className="font-medium">{contestant.name}</TableCell>
 
@@ -500,7 +561,26 @@ export default function JudgeTerminal() {
 
           {/* Right panel - Scoring interface for selected contestant */}
           <div className="md:col-span-2">
-            {currentContestant ? (
+            {isFinalized ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Scores Finalized
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                    <h3 className="text-xl font-semibold text-green-700 mb-2">Thank You!</h3>
+                    <p className="text-green-600 mb-4">Your scores have been finalized and submitted successfully.</p>
+                    <p className="text-muted-foreground">
+                      Please wait for the next criteria to be activated for judging, or check with the competition
+                      administrator for further instructions.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : currentContestant ? (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
@@ -599,7 +679,9 @@ export default function JudgeTerminal() {
                     >
                       Previous Contestant
                     </Button>
-                    <Button onClick={handleSaveAllScores}>Continue to Next</Button>
+                    <Button onClick={handleContinueOrFinalize} className={isLastContestant ? "bg-green-600" : ""}>
+                      {isLastContestant ? "Finalize Scores" : "Continue to Next"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
