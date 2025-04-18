@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db_config"
-import { cookies } from "next/headers"
 import { sign } from "jsonwebtoken"
 
 export async function POST(request: NextRequest) {
@@ -40,8 +39,17 @@ export async function POST(request: NextRequest) {
       { expiresIn: "8h" },
     )
 
-    // Set the token in a cookie
-    cookies().set({
+    // Create the response
+    const response = NextResponse.json({
+      success: true,
+      message: "Authentication successful",
+      judgeId: judgeRecord.judge_id,
+      judgeName: judgeRecord.judge_name || `Judge ${judgeRecord.judge_id}`,
+      competitionId: judgeRecord.competition_id,
+    })
+
+    // Set the cookie on the response object directly
+    response.cookies.set({
       name: "auth-token",
       value: token,
       httpOnly: true,
@@ -50,13 +58,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 8, // 8 hours
     })
 
-    return NextResponse.json({
-      success: true,
-      message: "Authentication successful",
-      judgeId: judgeRecord.judge_id,
-      judgeName: judgeRecord.judge_name || `Judge ${judgeRecord.judge_id}`,
-      competitionId: judgeRecord.competition_id,
-    })
+    return response
   } catch (error) {
     console.error("Error verifying judge:", error)
     return NextResponse.json(

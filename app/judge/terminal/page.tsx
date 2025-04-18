@@ -9,7 +9,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DashboardHeader } from "@/components/judge/dashboard-header"
 import { JudgeScoreDropdown } from "@/components/judge/judge-score-dropdown"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { ChevronLeft, ChevronRight, Trophy, CheckCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Trophy,
+  CheckCircle,
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+  Pause,
+  Play,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
@@ -21,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { usePolling } from "@/hooks/usePolling"
 
 export default function JudgeTerminal() {
   const router = useRouter()
@@ -37,6 +48,16 @@ export default function JudgeTerminal() {
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Use polling for real-time updates
+  const {
+    isPolling,
+    lastUpdate,
+    error: pollingError,
+    refresh,
+    startPolling,
+    stopPolling,
+  } = usePolling(competitionId, 10000) // Poll every 10 seconds
 
   const { loadCompetition, competitionSettings, contestants, judges, scores, setScores, activeCriteria } =
     useCompetitionStore()
@@ -226,6 +247,13 @@ export default function JudgeTerminal() {
     }
   }, [activeContestants, selectedContestantId, isLoading])
 
+  // Refresh data periodically to get updates from other judges
+  useEffect(() => {
+    if (lastUpdate) {
+      console.log(`Last data update: ${lastUpdate.toLocaleTimeString()}`)
+    }
+  }, [lastUpdate])
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
@@ -269,6 +297,28 @@ export default function JudgeTerminal() {
       }
 
       // Save to database
+      const response = await fetch("/api/scores", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          competitionId,
+          segmentId,
+          criteriaId: criterionId, // This will be mapped to criterionId in the API
+          contestantId,
+          judgeId: judgeInfo.id,
+          score,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error response from server:", errorData)
+        throw new Error(`Failed to save score: ${errorData.message || response.statusText}`)
+      }
+
+      // Update local state
       setScores(segmentId, contestantId, judgeInfo.id, criterionId, score)
 
       // Mark as saved
@@ -282,9 +332,12 @@ export default function JudgeTerminal() {
         duration: 1500,
         position: "bottom-right",
       })
+
+      // Trigger a refresh to make sure we have latest data
+      refresh()
     } catch (error) {
       console.error("Error saving score:", error)
-      toast.error("Failed to save score. Please try again.")
+      toast.error(`Failed to save score: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       // Remove from saving state
       setSavingScores((prev) => {
@@ -443,7 +496,7 @@ export default function JudgeTerminal() {
 
       {/* Finalize Confirmation Dialog */}
       <AlertDialog open={showFinalizeDialog} onOpenChange={setShowFinalizeDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white border shadow-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -477,7 +530,27 @@ export default function JudgeTerminal() {
                 {activeSegments.map((s) => s.name).join(" & ")} segment(s).
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center mr-2">
+                <Badge
+                  variant="outline"
+                  className={isPolling ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}
+                >
+                  {isPolling ? "Auto-refresh On" : "Auto-refresh Off"}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-1 h-6 w-6"
+                  onClick={isPolling ? stopPolling : startPolling}
+                  title={isPolling ? "Pause auto-refresh" : "Resume auto-refresh"}
+                >
+                  {isPolling ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                </Button>
+                <Button variant="ghost" size="icon" className="ml-1 h-6 w-6" onClick={refresh} title="Refresh now">
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
               {activeCriteriaDetails.map(({ criterionId, criterion }) => (
                 <Badge key={criterionId} variant="outline" className="bg-secondary/20">
                   <CheckCircle className="h-3 w-3 mr-1" /> {criterion?.name}
@@ -485,6 +558,17 @@ export default function JudgeTerminal() {
               ))}
             </div>
           </div>
+          {pollingError && (
+            <div className="mt-2 text-sm text-red-500">
+              {pollingError}{" "}
+              <Button variant="link" size="sm" className="p-0 h-auto" onClick={refresh}>
+                Retry
+              </Button>
+            </div>
+          )}
+          {lastUpdate && (
+            <div className="mt-1 text-xs text-muted-foreground">Last updated: {lastUpdate.toLocaleTimeString()}</div>
+          )}
         </div>
       </div>
 

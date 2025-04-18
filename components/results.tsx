@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,16 +11,25 @@ import RankingBreakdown from "./results/RankingBreakdown"
 import CriteriaScores from "./results/CriteriaScores"
 import TestScoring from "./test-scoring"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Award, BarChart3 } from "lucide-react"
+import { ChevronRight, Award, BarChart3, RefreshCw, Clock } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { calculateSegmentScores } from "@/utils/rankingUtils"
-import { useState } from "react"
 import { ActiveCriteriaManager } from "@/components/admin/active-criteria-manager"
+import { usePolling } from "@/hooks/usePolling"
+import { Badge } from "@/components/ui/badge"
 
 export function Results() {
-  const { competitionSettings, contestants, updateContestantSegment, scores, judges, setScores } = useCompetitionStore()
+  const {
+    competitionSettings,
+    contestants,
+    updateContestantSegment,
+    scores,
+    judges,
+    setScores,
+    selectedCompetitionId,
+  } = useCompetitionStore()
   const { segments } = competitionSettings
   const [selectedSegmentId, setSelectedSegmentId] = React.useState<string>(segments[0]?.id || "no-segments")
   const [activeContentTab, setActiveContentTab] = React.useState<string>("overview")
@@ -29,6 +38,15 @@ export function Results() {
 
   // Add a debug panel to help troubleshoot score issues
   const [showDebug, setShowDebug] = React.useState(false)
+
+  // Log the competition settings and ID for debugging
+  useEffect(() => {
+    console.log("Competition Settings:", competitionSettings)
+    console.log("Selected Competition ID from store:", selectedCompetitionId)
+  }, [competitionSettings, selectedCompetitionId])
+
+  // Use polling for updates (5 second interval)
+  const { isPolling, lastUpdate, error, refresh, startPolling, stopPolling } = usePolling(selectedCompetitionId, 5000)
 
   // Find the next segment ID
   const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)
@@ -39,6 +57,16 @@ export function Results() {
 
   // Get the current segment
   const currentSegment = segments.find((s) => s.id === selectedSegmentId)
+
+  // Function to manually refresh data
+  const manualRefresh = () => {
+    if (selectedCompetitionId) {
+      refresh()
+      toast.info("Manually refreshing data...")
+    } else {
+      toast.error("No competition ID available. Cannot refresh data.")
+    }
+  }
 
   // Add this function to the Results component
   const handleAdvanceToNextSegment = () => {
@@ -248,21 +276,67 @@ export function Results() {
 
   return (
     <div className="space-y-4">
+      {/* Polling status indicator */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className={`h-2 w-2 rounded-full ${isPolling ? "bg-green-500" : "bg-red-500"}`}></div>
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span>{isPolling ? "Auto-refresh active" : "Auto-refresh inactive"}</span>
+          {lastUpdate && (
+            <Badge variant="outline" className="ml-2">
+              Last update: {lastUpdate.toLocaleTimeString()}
+            </Badge>
+          )}
+          {error && <span className="text-red-500 ml-2">{error}</span>}
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
+              {isPolling ? "Pause Updates" : "Resume Updates"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={manualRefresh}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Refresh Now
+            </Button>
+          </div>
+        </div>
+
+        {!selectedCompetitionId && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTitle>No Competition ID</AlertTitle>
+            <AlertDescription>
+              No competition ID is available. Updates will not work until a competition is loaded.
+              <div className="mt-2">
+                <Button size="sm" variant="secondary" onClick={() => window.location.reload()}>
+                  Reload Page
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showDebug && (
+          <div className="text-xs bg-muted p-2 rounded">
+            <h4 className="font-medium mt-2 mb-1">Competition Info:</h4>
+            <div>Competition ID: {selectedCompetitionId || "Not available"}</div>
+            <div>Polling Status: {isPolling ? "Active" : "Inactive"}</div>
+            <div>Last Update: {lastUpdate ? lastUpdate.toLocaleTimeString() : "Never"}</div>
+          </div>
+        )}
+      </div>
+
       {/* Add the Active Criteria Manager at the top of the Results component */}
       <ActiveCriteriaManager />
 
       {/* Phase 1 Notice */}
-      {/* <Alert>
+      <Alert>
         <BarChart3 className="h-4 w-4" />
         <AlertTitle>Phase 1 Implementation</AlertTitle>
         <AlertDescription>
           This is the Phase 1 implementation of the tabulation system. In Phase 2, we will implement full per-criteria
           scoring and database integration.
         </AlertDescription>
-      </Alert> */}
+      </Alert>
 
       {/* Test Scoring Toggle */}
-      {/* <div className="flex justify-end">
+      <div className="flex justify-end">
         <Button variant={showTestScoring ? "default" : "outline"} onClick={() => setShowTestScoring(!showTestScoring)}>
           {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
         </Button>
@@ -272,7 +346,7 @@ export function Results() {
         <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
         </Button>
-      </div> */}
+      </div>
 
       {showDebug && (
         <Card className="mb-6">

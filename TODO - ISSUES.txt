@@ -1,3 +1,0 @@
-TODO:
-Work on v69 at v0
-show raw scores in the results tab

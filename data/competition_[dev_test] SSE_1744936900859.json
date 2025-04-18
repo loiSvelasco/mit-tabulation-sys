@@ -1,0 +1,52 @@
+{
+  "competitionSettings": {
+    "name": "[dev_test] SSE",
+    "separateRankingByGender": false,
+    "segments": [
+      {
+        "id": "1",
+        "name": "Preliminary",
+        "advancingCandidates": 3,
+        "criteria": [
+          {
+            "id": "7c772b22-2667-4a63-8b85-d0a0b88339d7",
+            "name": "Production Number",
+            "description": "",
+            "maxScore": 10
+          }
+        ]
+      }
+    ],
+    "ranking": {
+      "method": "rank-avg-rank",
+      "tiebreaker": "head-to-head",
+      "useSegmentWeights": false,
+      "trimPercentage": 40,
+      "segmentWeights": {},
+      "tiebreakerCriterionId": "",
+      "customFormula": "max_score * 2"
+    }
+  },
+  "contestants": [
+    {
+      "id": "1",
+      "name": "Jumil Pineda",
+      "gender": "Female",
+      "currentSegmentId": "1"
+    }
+  ],
+  "judges": [
+    {
+      "id": "b4889a50-0352-4048-b3c6-02337c1e4fae",
+      "name": "Louis Velasco",
+      "accessCode": "L8BDF5"
+    }
+  ],
+  "scores": {},
+  "activeCriteria": [
+    {
+      "segmentId": "1",
+      "criterionId": "7c772b22-2667-4a63-8b85-d0a0b88339d7"
+    }
+  ]
+}
