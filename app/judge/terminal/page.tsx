@@ -44,6 +44,7 @@ export default function JudgeTerminal() {
   const [savingScores, setSavingScores] = useState<Set<string>>(new Set())
   const [isFinalized, setIsFinalized] = useState(false)
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false)
+  const [finalizationStatus, setFinalizationStatus] = useState<Record<string, boolean>>({})
 
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
@@ -190,6 +191,11 @@ export default function JudgeTerminal() {
           }
         }
 
+        // Check if judge has already finalized any segments
+        if (data.user.id && data.competitionId) {
+          await checkFinalizationStatus(data.competitionId, data.user.id)
+        }
+
         dataLoadedRef.current = true
         setIsLoading(false)
       } catch (error) {
@@ -211,6 +217,35 @@ export default function JudgeTerminal() {
     selectedContestantId,
     competitionSettings.name,
   ])
+
+  // Check if judge has already finalized any segments
+  const checkFinalizationStatus = async (compId: number, judgeId: string) => {
+    try {
+      const response = await fetch(`/api/judge/finalize?competitionId=${compId}`)
+      if (response.ok) {
+        const data = await response.json()
+
+        // Create a map of segment IDs to finalization status
+        const statusMap: Record<string, boolean> = {}
+
+        data.forEach((item: any) => {
+          if (item.judge_id === judgeId) {
+            statusMap[item.segment_id] = !!item.finalized
+          }
+        })
+
+        setFinalizationStatus(statusMap)
+
+        // Check if any active segments are already finalized
+        const anyFinalized = activeSegmentIds.some((segmentId) => statusMap[segmentId])
+        if (anyFinalized) {
+          setIsFinalized(true)
+        }
+      }
+    } catch (error) {
+      console.error("Error checking finalization status:", error)
+    }
+  }
 
   // Setup session check and data loading
   useEffect(() => {
@@ -401,10 +436,46 @@ export default function JudgeTerminal() {
     setIsFinalized(true)
     setShowFinalizeDialog(false)
 
-    // Show success message
-    toast.success("Your scores have been finalized successfully!", {
-      duration: 3000,
-    })
+    // Update finalization status in the database
+    if (judgeInfo && competitionId) {
+      try {
+        // For each active segment, mark as finalized
+        for (const segmentId of activeSegmentIds) {
+          const response = await fetch("/api/judge/finalize", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              competitionId,
+              judgeId: judgeInfo.id,
+              segmentId,
+              finalized: true,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error("Error finalizing scores:", errorData)
+            throw new Error(`Failed to finalize scores: ${errorData.message || response.statusText}`)
+          }
+
+          // Update local finalization status
+          setFinalizationStatus((prev) => ({
+            ...prev,
+            [segmentId]: true,
+          }))
+        }
+
+        // Show success message
+        toast.success("Your scores have been finalized successfully!", {
+          duration: 3000,
+        })
+      } catch (error) {
+        console.error("Error finalizing scores:", error)
+        toast.error(`Failed to finalize scores: ${error instanceof Error ? error.message : "Unknown error"}`)
+      }
+    }
   }
 
   const navigateToPreviousContestant = () => {

@@ -19,6 +19,7 @@ import { calculateSegmentScores } from "@/utils/rankingUtils"
 import { ActiveCriteriaManager } from "@/components/admin/active-criteria-manager"
 import { usePolling } from "@/hooks/usePolling"
 import { Badge } from "@/components/ui/badge"
+import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
 
 export function Results() {
   const {
@@ -324,6 +325,11 @@ export function Results() {
 
       {/* Add the Active Criteria Manager at the top of the Results component */}
       <ActiveCriteriaManager />
+
+      {/* Add Judge Finalization Status component */}
+      {selectedCompetitionId && (
+        <JudgeFinalizationStatus competitionId={selectedCompetitionId} segmentId={selectedSegmentId} />
+      )}
 
       {/* Phase 1 Notice */}
       <Alert>

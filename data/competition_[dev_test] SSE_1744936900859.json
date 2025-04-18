@@ -13,6 +13,12 @@
             "name": "Production Number",
             "description": "",
             "maxScore": 10
+          },
+          {
+            "id": "a9dda310-b99b-423f-9b37-3319d595532a",
+            "name": "Swimsuit",
+            "description": "",
+            "maxScore": 90
           }
         ]
       }
@@ -44,6 +50,10 @@
   ],
   "scores": {},
   "activeCriteria": [
+    {
+      "segmentId": "1",
+      "criterionId": "a9dda310-b99b-423f-9b37-3319d595532a"
+    },
     {
       "segmentId": "1",
       "criterionId": "7c772b22-2667-4a63-8b85-d0a0b88339d7"
