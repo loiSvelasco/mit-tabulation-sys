@@ -40,7 +40,7 @@ const Navbar = () => {
 		<div className="navbar bg-base-100">
 			<div className="flex-1">
 				<img src="/tabulation_logo.svg" className="ml-4 w-8" alt="" />
-				<a className="text-xl ml-4">Tabulation System</a>
+				<a className="text-xl ml-4">RankX - An advanecd Tabulation System</a>
 			</div>
 			<div className="flex-none gap-2">
 				<Button type="button" onClick={handleLogout}>

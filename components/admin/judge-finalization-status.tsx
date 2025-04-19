@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Progress } from "@/components/ui/progress"
+import { RefreshCw, CheckCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "sonner"
 
 interface JudgeFinalizationStatusProps {
@@ -27,6 +27,7 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [judgeStatus, setJudgeStatus] = useState<JudgeFinalization[]>([])
+  const [isOpen, setIsOpen] = useState(false)
 
   const fetchJudgeStatus = async () => {
     try {
@@ -49,7 +50,6 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
     } catch (err) {
       console.error("Error fetching judge finalization status:", err)
       setError(err instanceof Error ? err.message : "Unknown error occurred")
-      toast.error("Failed to load judge finalization status")
     } finally {
       setLoading(false)
     }
@@ -72,91 +72,84 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
 
   if (error) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-red-500" />
-            Judge Finalization Status Error
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button onClick={fetchJudgeStatus} variant="outline" size="sm" className="mt-2">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Try Again
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="bg-red-50 border border-red-200 rounded-md p-2 text-sm text-red-800 flex items-center">
+        <AlertCircle className="h-4 w-4 mr-2" />
+        <span>Error loading judge status: {error}</span>
+        <Button size="sm" variant="ghost" className="ml-auto h-7 px-2" onClick={fetchJudgeStatus}>
+          <RefreshCw className="h-3 w-3" />
+        </Button>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-lg">Judge Finalization Status</CardTitle>
-          <Button onClick={fetchJudgeStatus} variant="outline" size="sm" disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md">
+      <div className="flex items-center justify-between p-2 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+          <span className="font-medium text-sm">Judge Finalization</span>
+          <Badge variant={completionPercentage === 100 ? "success" : "outline"} className="ml-2">
+            {finalizedJudges}/{totalJudges} Complete
+          </Badge>
         </div>
-        <CardDescription>
-          Track which judges have finalized their scoring for this {segmentId ? "segment" : "competition"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {loading && judgeStatus.length === 0 ? (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-12" />
-              </div>
-              <Skeleton className="h-4 w-full mb-4" />
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-2 border rounded">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Completion Progress</span>
-                <span className="text-sm font-medium">{completionPercentage}%</span>
-              </div>
-              <Progress value={completionPercentage} className="h-2 mb-4" />
 
-              {judgeStatus.length === 0 && !loading ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No judge data available for this competition
+        <div className="flex items-center gap-2">
+          <Progress value={completionPercentage} className="w-24 h-2" />
+          <span className="text-xs text-muted-foreground">{completionPercentage}%</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    fetchJudgeStatus()
+                    toast.info("Refreshing judge status...")
+                  }}
+                >
+                  <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Refresh judge status</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+
+      <CollapsibleContent>
+        <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
+          {judgeStatus.length === 0 && !loading ? (
+            <div className="text-center py-2 text-xs text-muted-foreground">No judge data available</div>
+          ) : (
+            judgeStatus.map((judge) => (
+              <div
+                key={judge.id}
+                className="flex items-center justify-between py-1 px-2 text-sm border-b last:border-0"
+              >
+                <div className="flex items-center">
+                  {judge.finalized ? (
+                    <CheckCircle className="h-3 w-3 text-green-500 mr-2" />
+                  ) : (
+                    <div className="h-3 w-3 rounded-full border border-amber-500 mr-2" />
+                  )}
+                  <span className="truncate max-w-[200px]">
+                    {judge.judge_name || `Judge ${judge.judge_id.substring(0, 8)}`}
+                  </span>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {judgeStatus.map((judge) => (
-                    <div key={judge.id} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center">
-                        {judge.finalized ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-amber-500 mr-2" />
-                        )}
-                        <span>{judge.judge_name || `Judge ${judge.judge_id.substring(0, 8)}`}</span>
-                      </div>
-                      <Badge variant={judge.finalized ? "success" : "outline"}>
-                        {judge.finalized ? "Finalized" : "Pending"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
+                <Badge variant={judge.finalized ? "success" : "outline"} className="text-xs">
+                  {judge.finalized ? "Finalized" : "Pending"}
+                </Badge>
+              </div>
+            ))
           )}
         </div>
-      </CardContent>
-    </Card>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

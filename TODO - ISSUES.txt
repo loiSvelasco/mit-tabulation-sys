@@ -1,0 +1,1 @@
+judge finalization view, should be a popout, not a dedicated space on the page.

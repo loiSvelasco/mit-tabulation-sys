@@ -326,9 +326,11 @@ export function Results() {
       {/* Add the Active Criteria Manager at the top of the Results component */}
       <ActiveCriteriaManager />
 
-      {/* Add Judge Finalization Status component */}
+      {/* Add compact Judge Finalization Status component */}
       {selectedCompetitionId && (
-        <JudgeFinalizationStatus competitionId={selectedCompetitionId} segmentId={selectedSegmentId} />
+        <div className="mb-2">
+          <JudgeFinalizationStatus competitionId={selectedCompetitionId} segmentId={selectedSegmentId} />
+        </div>
       )}
 
       {/* Phase 1 Notice */}
