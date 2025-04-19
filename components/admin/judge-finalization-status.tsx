@@ -8,6 +8,7 @@ import { RefreshCw, CheckCircle, AlertCircle, ChevronDown, ChevronUp } from "luc
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "sonner"
+import useCompetitionStore from "@/utils/useCompetitionStore"
 
 interface JudgeFinalizationStatusProps {
   competitionId: string | number
@@ -28,6 +29,9 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
   const [error, setError] = useState<string | null>(null)
   const [judgeStatus, setJudgeStatus] = useState<JudgeFinalization[]>([])
   const [isOpen, setIsOpen] = useState(false)
+
+  // Get judges from the competition store
+  const { judges } = useCompetitionStore()
 
   const fetchJudgeStatus = async () => {
     try {
@@ -65,9 +69,15 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
     }
   }, [competitionId, segmentId])
 
-  // Calculate completion percentage
-  const totalJudges = judgeStatus.length
-  const finalizedJudges = judgeStatus.filter((judge) => judge.finalized).length
+  // Create a map of judge IDs to their finalization status
+  const judgeFinalizationMap: Record<string, boolean> = {}
+  judgeStatus.forEach((status) => {
+    judgeFinalizationMap[status.judge_id] = status.finalized
+  })
+
+  // Calculate completion percentage based on all judges in the competition
+  const totalJudges = judges.length
+  const finalizedJudges = judges.filter((judge) => judgeFinalizationMap[judge.id] === true).length
   const completionPercentage = totalJudges > 0 ? Math.round((finalizedJudges / totalJudges) * 100) : 0
 
   if (error) {
@@ -124,29 +134,33 @@ export function JudgeFinalizationStatus({ competitionId, segmentId }: JudgeFinal
 
       <CollapsibleContent>
         <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
-          {judgeStatus.length === 0 && !loading ? (
-            <div className="text-center py-2 text-xs text-muted-foreground">No judge data available</div>
+          {judges.length === 0 ? (
+            <div className="text-center py-2 text-xs text-muted-foreground">
+              No judges available for this competition
+            </div>
           ) : (
-            judgeStatus.map((judge) => (
-              <div
-                key={judge.id}
-                className="flex items-center justify-between py-1 px-2 text-sm border-b last:border-0"
-              >
-                <div className="flex items-center">
-                  {judge.finalized ? (
-                    <CheckCircle className="h-3 w-3 text-green-500 mr-2" />
-                  ) : (
-                    <div className="h-3 w-3 rounded-full border border-amber-500 mr-2" />
-                  )}
-                  <span className="truncate max-w-[200px]">
-                    {judge.judge_name || `Judge ${judge.judge_id.substring(0, 8)}`}
-                  </span>
+            judges.map((judge) => {
+              const isFinalized = judgeFinalizationMap[judge.id] === true
+
+              return (
+                <div
+                  key={judge.id}
+                  className="flex items-center justify-between py-1 px-2 text-sm border-b last:border-0"
+                >
+                  <div className="flex items-center">
+                    {isFinalized ? (
+                      <CheckCircle className="h-3 w-3 text-green-500 mr-2" />
+                    ) : (
+                      <div className="h-3 w-3 rounded-full border border-amber-500 mr-2" />
+                    )}
+                    <span className="truncate max-w-[200px]">{judge.name || `Judge ${judge.id.substring(0, 8)}`}</span>
+                  </div>
+                  <Badge variant={isFinalized ? "success" : "outline"} className="text-xs">
+                    {isFinalized ? "Finalized" : "Pending"}
+                  </Badge>
                 </div>
-                <Badge variant={judge.finalized ? "success" : "outline"} className="text-xs">
-                  {judge.finalized ? "Finalized" : "Pending"}
-                </Badge>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </CollapsibleContent>

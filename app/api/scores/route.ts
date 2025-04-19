@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db_config"
 import { globalEventEmitter, SCORE_UPDATED } from "@/lib/event-emitter"
 import crypto from "crypto"
+import { v4 as uuidv4 } from "uuid"
 
 // Helper function to generate ETag
 function generateETag(data: any): string {
@@ -94,12 +95,15 @@ export async function POST(request: NextRequest) {
         [score, competitionId, segmentId, criteriaId, contestantId, judgeId],
       )
     } else {
-      // Insert new score
+      // Generate a UUID for the new score
+      const scoreId = uuidv4()
+
+      // Insert new score with the generated ID
       result = await query(
         `INSERT INTO scores 
-         (competition_id, segment_id, criterion_id, contestant_id, judge_id, score, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [competitionId, segmentId, criteriaId, contestantId, judgeId, score],
+         (id, competition_id, segment_id, criterion_id, contestant_id, judge_id, score, created_at, updated_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [scoreId, competitionId, segmentId, criteriaId, contestantId, judgeId, score],
       )
     }
 
@@ -118,7 +122,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Score saved successfully" })
   } catch (error) {
     console.error("Error saving score:", error)
-    return NextResponse.json({ error: "Failed to save score" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to save score",
+        details: (error as Error).message,
+        stack: (error as Error).stack,
+      },
+      { status: 500 },
+    )
   }
 }
 
