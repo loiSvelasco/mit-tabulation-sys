@@ -20,8 +20,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 import { SyncJudgesButton } from "@/components/judge/sync-judges-button"
 import { toast } from "sonner"
+import { ImageUpload } from "./image-upload"
 
-const JudgeScoring = () => {
+const EnhancedJudgeScoring = () => {
   const {
     competitionSettings,
     contestants,
@@ -35,6 +36,7 @@ const JudgeScoring = () => {
     updateJudgeName,
     updateContestantSegment,
     selectedCompetitionId,
+    updateContestantImage,
   } = useCompetitionStore()
 
   const [contestantName, setContestantName] = useState("")
@@ -124,6 +126,46 @@ const JudgeScoring = () => {
     return result.charAt(0).toUpperCase() + result.slice(1)
   }
 
+  // Handle image upload for a contestant
+  const handleImageUpload = async (contestantId: string, file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("contestantId", contestantId)
+
+      // Get the current image URL if it exists
+      const contestant = contestants.find((c) => c.id === contestantId)
+      if (contestant?.imageUrl) {
+        formData.append("oldImageUrl", contestant.imageUrl)
+      }
+
+      const response = await fetch("/api/contestants/upload-image", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image")
+      }
+
+      const { imageUrl } = await response.json()
+
+      // Update the contestant with the new image URL
+      updateContestantImage(contestantId, imageUrl)
+
+      return imageUrl
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      toast.error("Failed to upload image")
+      throw error
+    }
+  }
+
+  // Handle image removal for a contestant
+  const handleImageRemove = (contestantId: string) => {
+    updateContestantImage(contestantId, undefined)
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* Contestants Management */}
@@ -165,6 +207,7 @@ const JudgeScoring = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
+                  <TableHead>Image</TableHead>
                   <TableHead>Name</TableHead>
                   {competitionSettings.separateRankingByGender && <TableHead>Gender</TableHead>}
                   <TableHead>Segment</TableHead>
@@ -175,6 +218,13 @@ const JudgeScoring = () => {
                 {contestants.map((contestant) => (
                   <TableRow key={contestant.id} className="border-t">
                     <TableCell>{contestant.id}</TableCell>
+                    <TableCell>
+                      <ImageUpload
+                        imageUrl={contestant.imageUrl}
+                        onImageUpload={(file) => handleImageUpload(contestant.id, file)}
+                        onImageRemove={() => handleImageRemove(contestant.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {editingContestant?.contestantId === contestant.id ? (
                         <Input
@@ -357,4 +407,4 @@ const JudgeScoring = () => {
   )
 }
 
-export default JudgeScoring
+export default EnhancedJudgeScoring

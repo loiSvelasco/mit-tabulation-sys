@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Pause,
   Play,
+  User,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -32,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { usePolling } from "@/hooks/usePolling"
+import Image from "next/image"
 
 export default function JudgeTerminal() {
   const router = useRouter()
@@ -772,6 +774,27 @@ export default function JudgeTerminal() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {/* Contestant Image */}
+                  {currentContestant.imageUrl ? (
+                    <div className="mb-6 flex justify-center">
+                      <div className="relative w-48 h-48 rounded-md overflow-hidden border">
+                        <Image
+                          src={currentContestant.imageUrl || "/placeholder.svg"}
+                          alt={currentContestant.name}
+                          fill
+                          style={{ objectFit: "cover" }}
+                          sizes="(max-width: 768px) 100vw, 192px"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-6 flex justify-center">
+                      <div className="w-48 h-48 rounded-md border flex items-center justify-center bg-muted">
+                        <User className="h-16 w-16 text-muted-foreground opacity-30" />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Grid layout for criteria */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeCriteriaDetails

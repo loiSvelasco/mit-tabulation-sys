@@ -56,7 +56,8 @@
       "id": "1",
       "name": "Dingras",
       "gender": "Female",
-      "currentSegmentId": "1"
+      "currentSegmentId": "1",
+      "imageUrl": "/uploads/contestants/contestant_1_53dbe460-e352-43d6-a5ff-d8df9cade77c.jpg"
     },
     {
       "id": "2",
@@ -74,7 +75,8 @@
       "id": "4",
       "name": "Banna",
       "gender": "Female",
-      "currentSegmentId": "1"
+      "currentSegmentId": "1",
+      "imageUrl": "/uploads/contestants/contestant_4_3a4e25a1-8dd9-42d7-b054-8bc9a41513c5.jpg"
     },
     {
       "id": "5",

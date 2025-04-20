@@ -24,11 +24,13 @@ interface Segment {
   criteria: Criterion[]
 }
 
+// Update the Contestant interface to allow null values for imageUrl
 export interface Contestant {
   id: string
   name: string
   gender?: "Male" | "Female"
   currentSegmentId: string // Tracks which segment the contestant is in
+  imageUrl?: string | null // Updated to allow null values
 }
 
 interface Judge {
@@ -105,6 +107,7 @@ interface CompetitionState {
   addContestant: (name: string, gender?: "Male" | "Female") => void
   updateContestantName: (contestantId: string, newName: string) => void
   updateContestantSegment: (contestantId: string, segmentId: string) => void
+  updateContestantImage: (contestantId: string, imageUrl: string | null) => void // New method
   removeContestant: (id: string) => void
   addJudge: (name: string) => void
   removeJudge: (id: string) => void
@@ -365,6 +368,12 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
   updateContestantSegment: (contestantId: string, segmentId: string) =>
     set((state) => ({
       contestants: state.contestants.map((c) => (c.id === contestantId ? { ...c, currentSegmentId: segmentId } : c)),
+    })),
+
+  // New method to update contestant image
+  updateContestantImage: (contestantId: string, imageUrl: string | null) =>
+    set((state) => ({
+      contestants: state.contestants.map((c) => (c.id === contestantId ? { ...c, imageUrl: imageUrl } : c)),
     })),
 
   removeContestant: (id) =>

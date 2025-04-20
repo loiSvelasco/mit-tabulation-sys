@@ -10,13 +10,13 @@ import Link from "next/link"
 import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X } from "lucide-react"
 import CompetitionSettings from "@/components/competition-settings"
 import DataManagement from "@/components/data-management"
-import JudgeScoring from "@/components/judge-scoring"
 import Results from "@/components/results"
 import { RankingConfiguration } from "@/components/ranking-configuration"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import EnhancedJudgeScoring from "@/components/judge-scoring"
 // import { SyncJudgesButton } from "@/components/admin/sync-judges-button"
 
 interface Competition {
@@ -301,7 +301,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="scoring">
-            <JudgeScoring />
+            <EnhancedJudgeScoring />
           </TabsContent>
 
           <TabsContent value="ranking">

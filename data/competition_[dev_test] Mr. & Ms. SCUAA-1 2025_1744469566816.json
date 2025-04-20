@@ -75,7 +75,8 @@
       "id": "1",
       "name": "DMMSU - F",
       "gender": "female",
-      "currentSegmentId": "2"
+      "currentSegmentId": "2",
+      "imageUrl": "/uploads/contestants/contestant_1_53dbe460-e352-43d6-a5ff-d8df9cade77c.jpg"
     },
     {
       "id": "2",
@@ -93,7 +94,8 @@
       "id": "4",
       "name": "PSU",
       "gender": "female",
-      "currentSegmentId": "1"
+      "currentSegmentId": "1",
+      "imageUrl": "/uploads/contestants/contestant_4_3a4e25a1-8dd9-42d7-b054-8bc9a41513c5.jpg"
     },
     {
       "id": "5",
@@ -152,8 +154,8 @@
   "scores": {},
   "activeCriteria": [
     {
-      "segmentId": "2",
-      "criterionId": "174fe3ef-0045-46f4-83de-7ccd082789b0"
+      "segmentId": "1",
+      "criterionId": "7c772b22-2667-4a63-8b85-d0a0b88339d7"
     }
   ]
 }
