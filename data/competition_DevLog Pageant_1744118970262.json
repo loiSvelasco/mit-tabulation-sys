@@ -57,13 +57,14 @@
       "name": "Dingras",
       "gender": "Female",
       "currentSegmentId": "1",
-      "imageUrl": "/uploads/contestants/contestant_1_53dbe460-e352-43d6-a5ff-d8df9cade77c.jpg"
+      "imageUrl": "/uploads/contestants/contestant_1_bb371585-ab32-4d3f-97dc-275a404a21a9.jpg"
     },
     {
       "id": "2",
       "name": "Pasuquin",
       "gender": "Female",
-      "currentSegmentId": "1"
+      "currentSegmentId": "1",
+      "imageUrl": "/uploads/contestants/contestant_2_44c1b776-d6b7-4919-bbb4-6348ed1a60eb.jpg"
     },
     {
       "id": "3",

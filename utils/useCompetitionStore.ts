@@ -24,13 +24,15 @@ interface Segment {
   criteria: Criterion[]
 }
 
-// Update the Contestant interface to allow null values for imageUrl
-export interface Contestant {
+// Update the Contestant interface to allow null for imageUrl
+// Find the Contestant interface and update the imageUrl property to be nullable
+
+interface Contestant {
   id: string
   name: string
-  gender?: "Male" | "Female"
-  currentSegmentId: string // Tracks which segment the contestant is in
-  imageUrl?: string | null // Updated to allow null values
+  gender: "Male" | "Female"
+  currentSegmentId: string
+  imageUrl: string | null
 }
 
 interface Judge {
@@ -211,60 +213,70 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       name: "Candidate 1",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "2",
       name: "Candidate 2",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "3",
       name: "Candidate 3",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "4",
       name: "Candidate 4",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "5",
       name: "Candidate 5",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "6",
       name: "Candidate 6",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "7",
       name: "Candidate 7",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "8",
       name: "Candidate 8",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "9",
       name: "Candidate 9",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
     {
       id: "10",
       name: "Candidate 10",
       gender: "Female",
       currentSegmentId: "1",
+      imageUrl: null,
     },
   ],
   judges: [
@@ -356,7 +368,10 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         state.competitionSettings.segments.length > 0 ? state.competitionSettings.segments[0].id : ""
 
       return {
-        contestants: [...state.contestants, { id: newId.toString(), name, gender, currentSegmentId: firstSegmentId }],
+        contestants: [
+          ...state.contestants,
+          { id: newId.toString(), name, gender, currentSegmentId: firstSegmentId, imageUrl: null },
+        ],
       }
     }),
 

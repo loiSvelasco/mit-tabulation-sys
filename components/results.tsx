@@ -11,12 +11,12 @@ import RankingBreakdown from "./results/RankingBreakdown"
 import CriteriaScores from "./results/CriteriaScores"
 import TestScoring from "./test-scoring"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Award, BarChart3, RefreshCw, Clock } from "lucide-react"
+import { ChevronRight, Award, RefreshCw, Clock } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { calculateSegmentScores } from "@/utils/rankingUtils"
-import { ActiveCriteriaManager } from "@/components/admin/active-criteria-manager"
+import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { usePolling } from "@/hooks/usePolling"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
@@ -323,36 +323,32 @@ export function Results() {
         )}
       </div>
 
-      {/* Add the Active Criteria Manager at the top of the Results component */}
-      <ActiveCriteriaManager />
-
-      {/* Add compact Judge Finalization Status component */}
-      {selectedCompetitionId && (
-        <div className="mb-2">
-          <JudgeFinalizationStatus competitionId={selectedCompetitionId} segmentId={selectedSegmentId} />
+      {/* Place Active Criteria Manager and Judge Finalization Status on the same row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          {/* Use the ActiveCriteriaManager directly */}
+          <ActiveCriteriaManager />
         </div>
-      )}
 
-      {/* Phase 1 Notice */}
-      <Alert>
-        <BarChart3 className="h-4 w-4" />
-        <AlertTitle>Phase 1 Implementation</AlertTitle>
-        <AlertDescription>
-          This is the Phase 1 implementation of the tabulation system. In Phase 2, we will implement full per-criteria
-          scoring and database integration.
-        </AlertDescription>
-      </Alert>
-
-      {/* Test Scoring Toggle */}
-      <div className="flex justify-end">
-        <Button variant={showTestScoring ? "default" : "outline"} onClick={() => setShowTestScoring(!showTestScoring)}>
-          {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
-        </Button>
+        {selectedCompetitionId && (
+          <div>
+            {/* Keep JudgeFinalizationStatus in the main component to receive polling updates */}
+            <JudgeFinalizationStatus competitionId={selectedCompetitionId} segmentId={selectedSegmentId} />
+          </div>
+        )}
       </div>
 
-      <div className="flex justify-end mt-2">
+      {/* Debug and Test Scoring Toggles */}
+      <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
+        </Button>
+        <Button
+          variant={showTestScoring ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowTestScoring(!showTestScoring)}
+        >
+          {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
         </Button>
       </div>
 

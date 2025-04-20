@@ -95,7 +95,7 @@ const EnhancedJudgeScoring = () => {
 
   const handleAddJudge = () => {
     if (!judgeName.trim()) return
-
+    setNeedsSync(true)
     addJudge(judgeName)
     setJudgeName("")
   }

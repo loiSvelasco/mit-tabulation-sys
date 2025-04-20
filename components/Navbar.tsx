@@ -7,13 +7,13 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
 const Navbar = () => {
-	const [isdark, setIsdark] = useState(
-		//@ts-ignore
-		JSON.parse(localStorage.getItem('isdark'))
-	);
-	useEffect(() => {
-		localStorage.setItem('isdark', JSON.stringify(isdark));
-	}, [isdark]);
+	// const [isdark, setIsdark] = useState(
+	// 	//@ts-ignore
+	// 	JSON.parse(localStorage.getItem('isdark'))
+	// );
+	// useEffect(() => {
+	// 	localStorage.setItem('isdark', JSON.stringify(isdark));
+	// }, [isdark]);
 
 	const { data: session } = authClient.useSession();
 	const router = useRouter();
@@ -47,7 +47,7 @@ const Navbar = () => {
 					<LogOut /> Sign Out
 				</Button>
 
-				<label className="flex cursor-pointer gap-2">
+				{/* <label className="flex cursor-pointer gap-2">
 				<svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="20"
@@ -75,7 +75,7 @@ const Navbar = () => {
 							strokeLinejoin="round">
 							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
 						</svg>
-				</label>
+				</label> */}
 
 				<div className="dropdown dropdown-end mr-4">
 					<div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">

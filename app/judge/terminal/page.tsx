@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DashboardHeader } from "@/components/judge/dashboard-header"
 import { JudgeScoreDropdown } from "@/components/judge/judge-score-dropdown"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import {
@@ -20,6 +19,7 @@ import {
   Pause,
   Play,
   User,
+  LogOut,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { usePolling } from "@/hooks/usePolling"
-import Image from "next/image"
+import { ImageViewer } from "@/components/image-viewer"
 
 export default function JudgeTerminal() {
   const router = useRouter()
@@ -51,6 +51,7 @@ export default function JudgeTerminal() {
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const finalizationCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use polling for real-time updates
   const {
@@ -114,6 +115,48 @@ export default function JudgeTerminal() {
       return false
     }
   }, [])
+
+  // Check if judge has already finalized any segments
+  const checkFinalizationStatus = useCallback(
+    async (compId: number, judgeId: string) => {
+      try {
+        const response = await fetch(`/api/judge/finalize?competitionId=${compId}`)
+        if (response.ok) {
+          const data = await response.json()
+
+          // Create a map of segment IDs to finalization status
+          const statusMap: Record<string, boolean> = {}
+
+          data.forEach((item: any) => {
+            if (item.judge_id === judgeId) {
+              // Handle both boolean and numeric (0/1) values
+              statusMap[item.segment_id] = item.finalized === true || item.finalized === 1
+            }
+          })
+
+          setFinalizationStatus(statusMap)
+
+          // Check if any active segments are already finalized
+          const anyFinalized = activeSegmentIds.some((segmentId) => statusMap[segmentId])
+
+          // If finalization status has changed from finalized to not finalized
+          if (isFinalized && !anyFinalized) {
+            toast.success("You can now edit your scores again")
+            refresh() // Refresh data to get latest scores
+          }
+
+          setIsFinalized(anyFinalized)
+
+          return anyFinalized
+        }
+        return isFinalized // Return current state if request fails
+      } catch (error) {
+        console.error("Error checking finalization status:", error)
+        return isFinalized // Return current state if request fails
+      }
+    },
+    [isFinalized, refresh],
+  )
 
   // Initial data loading
   const loadInitialData = useCallback(async () => {
@@ -179,6 +222,8 @@ export default function JudgeTerminal() {
                     initialScores[segmentId][contestant.id] = {}
                   }
                   initialScores[segmentId][contestant.id][criterionId] = contestantScore
+
+                  // Mark this score as saved since it came from the database
                   saved.add(`${contestant.id}-${criterionId}`)
                 }
               })
@@ -218,36 +263,8 @@ export default function JudgeTerminal() {
     scores,
     selectedContestantId,
     competitionSettings.name,
+    checkFinalizationStatus,
   ])
-
-  // Check if judge has already finalized any segments
-  const checkFinalizationStatus = async (compId: number, judgeId: string) => {
-    try {
-      const response = await fetch(`/api/judge/finalize?competitionId=${compId}`)
-      if (response.ok) {
-        const data = await response.json()
-
-        // Create a map of segment IDs to finalization status
-        const statusMap: Record<string, boolean> = {}
-
-        data.forEach((item: any) => {
-          if (item.judge_id === judgeId) {
-            statusMap[item.segment_id] = !!item.finalized
-          }
-        })
-
-        setFinalizationStatus(statusMap)
-
-        // Check if any active segments are already finalized
-        const anyFinalized = activeSegmentIds.some((segmentId) => statusMap[segmentId])
-        if (anyFinalized) {
-          setIsFinalized(true)
-        }
-      }
-    } catch (error) {
-      console.error("Error checking finalization status:", error)
-    }
-  }
 
   // Setup session check and data loading
   useEffect(() => {
@@ -274,8 +291,35 @@ export default function JudgeTerminal() {
       if (sessionCheckIntervalRef.current) {
         clearInterval(sessionCheckIntervalRef.current)
       }
+      if (finalizationCheckIntervalRef.current) {
+        clearInterval(finalizationCheckIntervalRef.current)
+      }
     }
   }, [loadInitialData, checkSession, router])
+
+  // Set up finalization status check - more frequent when finalized
+  useEffect(() => {
+    // Clean up existing interval if any
+    if (finalizationCheckIntervalRef.current) {
+      clearInterval(finalizationCheckIntervalRef.current)
+      finalizationCheckIntervalRef.current = null
+    }
+
+    if (competitionId && judgeInfo) {
+      // Check more frequently (every 3 seconds) when finalized to detect when admin allows editing
+      const checkInterval = isFinalized ? 3000 : 15000
+
+      finalizationCheckIntervalRef.current = setInterval(() => {
+        checkFinalizationStatus(competitionId, judgeInfo.id)
+      }, checkInterval)
+    }
+
+    return () => {
+      if (finalizationCheckIntervalRef.current) {
+        clearInterval(finalizationCheckIntervalRef.current)
+      }
+    }
+  }, [competitionId, judgeInfo, isFinalized, checkFinalizationStatus])
 
   // Set selected contestant when contestants change and none is selected
   useEffect(() => {
@@ -290,6 +334,43 @@ export default function JudgeTerminal() {
       console.log(`Last data update: ${lastUpdate.toLocaleTimeString()}`)
     }
   }, [lastUpdate])
+
+  // Update savedContestants when scores change
+  useEffect(() => {
+    if (judgeInfo && activeCriteria.length > 0) {
+      const saved = new Set<string>()
+
+      // Mark all scores from the database as saved
+      activeCriteria.forEach(({ segmentId, criterionId }) => {
+        activeContestants
+          .filter((c) => c.currentSegmentId === segmentId)
+          .forEach((contestant) => {
+            if (scores[segmentId]?.[contestant.id]?.[judgeInfo.id]?.[criterionId] !== undefined) {
+              saved.add(`${contestant.id}-${criterionId}`)
+            }
+          })
+      })
+
+      // Only update if there's a difference to prevent infinite loops
+      setSavedContestants((prev) => {
+        // Check if the sets are different
+        if (prev.size !== saved.size) return saved
+
+        // Check if all items in prev are in saved
+        for (const item of prev) {
+          if (!saved.has(item)) return saved
+        }
+
+        // Check if all items in saved are in prev
+        for (const item of saved) {
+          if (!prev.has(item)) return saved
+        }
+
+        // If we get here, the sets are identical, so don't update
+        return prev
+      })
+    }
+  }, [scores, judgeInfo, activeCriteria, activeContestants])
 
   const handleLogout = async () => {
     try {
@@ -547,8 +628,14 @@ export default function JudgeTerminal() {
   if (activeCriteria.length === 0) {
     return (
       <div className="min-h-screen bg-muted/30">
-        <DashboardHeader judgeName={judgeInfo?.name || "Judge"} onLogout={handleLogout} />
         <main className="container mx-auto py-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">Judge Terminal</h1>
+            <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center gap-1">
+              <LogOut size={16} />
+              <span>Logout</span>
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Waiting for Active Criteria</CardTitle>
@@ -565,8 +652,6 @@ export default function JudgeTerminal() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <DashboardHeader judgeName={judgeInfo?.name || "Judge"} onLogout={handleLogout} />
-
       {/* Finalize Confirmation Dialog */}
       <AlertDialog open={showFinalizeDialog} onOpenChange={setShowFinalizeDialog}>
         <AlertDialogContent className="bg-white border shadow-lg">
@@ -629,6 +714,10 @@ export default function JudgeTerminal() {
                   <CheckCircle className="h-3 w-3 mr-1" /> {criterion?.name}
                 </Badge>
               ))}
+              <Button variant="outline" size="sm" onClick={handleLogout} className="ml-2 flex items-center gap-1">
+                <LogOut size={16} />
+                <span>Logout</span>
+              </Button>
             </div>
           </div>
           {pollingError && (
@@ -646,9 +735,10 @@ export default function JudgeTerminal() {
       </div>
 
       <main className="container mx-auto py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* New layout with larger image */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left panel - Contestants list with scores */}
-          <div className="md:col-span-1">
+          <div className="lg:col-span-4">
             <Card className="h-full">
               <CardHeader>
                 <CardTitle>Contestants</CardTitle>
@@ -717,7 +807,7 @@ export default function JudgeTerminal() {
           </div>
 
           {/* Right panel - Scoring interface for selected contestant */}
-          <div className="md:col-span-2">
+          <div className="lg:col-span-8">
             {isFinalized ? (
               <Card>
                 <CardHeader>
@@ -738,131 +828,138 @@ export default function JudgeTerminal() {
                 </CardContent>
               </Card>
             ) : currentContestant ? (
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      {currentContestant.name}
-                      {currentSegment && (
-                        <Badge variant="outline" className="ml-2">
-                          {currentSegment.name}
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <CardDescription>Score this contestant on all criteria</CardDescription>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={navigateToPreviousContestant}
-                      disabled={activeContestants.findIndex((c) => c.id === selectedContestantId) === 0}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={navigateToNextContestant}
-                      disabled={
-                        activeContestants.findIndex((c) => c.id === selectedContestantId) ===
-                        activeContestants.length - 1
-                      }
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Contestant Image */}
-                  {currentContestant.imageUrl ? (
-                    <div className="mb-6 flex justify-center">
-                      <div className="relative w-48 h-48 rounded-md overflow-hidden border">
-                        <Image
+              <div className="grid grid-cols-1 gap-6">
+                {/* Contestant Image Card */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        {currentContestant.name}
+                        {currentSegment && (
+                          <Badge variant="outline" className="ml-2">
+                            {currentSegment.name}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={navigateToPreviousContestant}
+                        disabled={activeContestants.findIndex((c) => c.id === selectedContestantId) === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={navigateToNextContestant}
+                        disabled={
+                          activeContestants.findIndex((c) => c.id === selectedContestantId) ===
+                          activeContestants.length - 1
+                        }
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {/* Contestant Image with Full Screen Viewer */}
+                    {currentContestant.imageUrl ? (
+                      <div className="w-full h-[400px] mb-4">
+                        <ImageViewer
                           src={currentContestant.imageUrl || "/placeholder.svg"}
                           alt={currentContestant.name}
-                          fill
-                          style={{ objectFit: "cover" }}
-                          sizes="(max-width: 768px) 100vw, 192px"
+                          className="w-full h-full"
                         />
                       </div>
-                    </div>
-                  ) : (
-                    <div className="mb-6 flex justify-center">
-                      <div className="w-48 h-48 rounded-md border flex items-center justify-center bg-muted">
-                        <User className="h-16 w-16 text-muted-foreground opacity-30" />
+                    ) : (
+                      <div className="w-full h-[400px] rounded-md border flex items-center justify-center bg-muted mb-4">
+                        <div className="text-center">
+                          <User className="h-16 w-16 mx-auto text-muted-foreground opacity-30" />
+                          <p className="text-muted-foreground mt-2">No image available</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </CardContent>
+                </Card>
 
-                  {/* Grid layout for criteria */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {activeCriteriaDetails
-                      .filter(({ segmentId }) => segmentId === currentContestant.currentSegmentId)
-                      .map(({ segmentId, criterionId, criterion }) => {
-                        if (!criterion) return null
+                {/* Scoring Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Scoring</CardTitle>
+                    <CardDescription>Score this contestant on all criteria</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Grid layout for criteria */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {activeCriteriaDetails
+                        .filter(({ segmentId }) => segmentId === currentContestant.currentSegmentId)
+                        .map(({ segmentId, criterionId, criterion }) => {
+                          if (!criterion) return null
 
-                        const score =
-                          currentScores[segmentId]?.[currentContestant.id]?.[criterionId] ??
-                          (judgeInfo
-                            ? (scores[segmentId]?.[currentContestant.id]?.[judgeInfo.id]?.[criterionId] ?? 0)
-                            : 0)
+                          const score =
+                            currentScores[segmentId]?.[currentContestant.id]?.[criterionId] ??
+                            (judgeInfo
+                              ? (scores[segmentId]?.[currentContestant.id]?.[judgeInfo.id]?.[criterionId] ?? 0)
+                              : 0)
 
-                        const isScored = savedContestants.has(`${currentContestant.id}-${criterionId}`)
-                        const isSaving = savingScores.has(`${currentContestant.id}-${criterionId}`)
-                        const scoreKey = `${currentContestant.id}-${criterionId}`
+                          const isScored = savedContestants.has(`${currentContestant.id}-${criterionId}`)
+                          const isSaving = savingScores.has(`${currentContestant.id}-${criterionId}`)
 
-                        return (
-                          <div key={criterionId} className="border rounded p-3 bg-card">
-                            <div className="flex flex-col gap-2">
-                              <div>
-                                <h4 className="font-medium">{criterion.name}</h4>
-                                <p className="text-xs text-muted-foreground">
-                                  {criterion.description || "No description"}
-                                  {criterion.maxScore && (
-                                    <span className="ml-1 font-medium">(Max: {criterion.maxScore})</span>
-                                  )}
-                                </p>
-                              </div>
-                              <div className="flex items-center justify-between mt-2">
-                                <JudgeScoreDropdown
-                                  maxScore={criterion.maxScore}
-                                  increment={0.25}
-                                  value={score}
-                                  onChange={(value) =>
-                                    handleScoreChange(segmentId, currentContestant.id, criterionId, value)
-                                  }
-                                />
-                                <div className="ml-2 min-w-[80px] text-right">
-                                  {isSaving ? (
-                                    <span className="text-amber-600 text-sm">Saving...</span>
-                                  ) : isScored ? (
-                                    <span className="text-green-600 text-sm">Saved</span>
-                                  ) : (
-                                    <span className="text-muted-foreground text-sm">Not saved</span>
-                                  )}
+                          return (
+                            <div key={criterionId} className="border rounded p-3 bg-card">
+                              <div className="flex flex-col gap-2">
+                                <div>
+                                  <h4 className="font-medium">{criterion.name}</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {criterion.description || "No description"}
+                                    {criterion.maxScore && (
+                                      <span className="ml-1 font-medium">(Max: {criterion.maxScore})</span>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <JudgeScoreDropdown
+                                    maxScore={criterion.maxScore}
+                                    increment={0.25}
+                                    value={score}
+                                    onChange={(value) =>
+                                      handleScoreChange(segmentId, currentContestant.id, criterionId, value)
+                                    }
+                                  />
+                                  <div className="ml-2 min-w-[80px] text-right">
+                                    {isSaving ? (
+                                      <span className="text-amber-600 text-sm">Saving...</span>
+                                    ) : isScored ? (
+                                      <span className="text-green-600 text-sm">Saved</span>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm">Not saved</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )
-                      })}
-                  </div>
+                          )
+                        })}
+                    </div>
 
-                  <div className="mt-6 flex justify-between">
-                    <Button
-                      variant="outline"
-                      onClick={navigateToPreviousContestant}
-                      disabled={activeContestants.findIndex((c) => c.id === selectedContestantId) === 0}
-                    >
-                      Previous Contestant
-                    </Button>
-                    <Button onClick={handleContinueOrFinalize} className={isLastContestant ? "bg-green-600" : ""}>
-                      {isLastContestant ? "Finalize Scores" : "Continue to Next"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="mt-6 flex justify-between">
+                      <Button
+                        variant="outline"
+                        onClick={navigateToPreviousContestant}
+                        disabled={activeContestants.findIndex((c) => c.id === selectedContestantId) === 0}
+                      >
+                        Previous Contestant
+                      </Button>
+                      <Button onClick={handleContinueOrFinalize} className={isLastContestant ? "bg-green-600" : ""}>
+                        {isLastContestant ? "Finalize Scores" : "Continue to Next"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               <Card>
                 <CardHeader>

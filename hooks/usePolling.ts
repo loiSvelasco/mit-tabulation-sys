@@ -9,6 +9,7 @@ export function usePolling(competitionId: number | null | undefined, interval = 
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const { loadCompetition } = useCompetitionStore()
+  const mountedRef = useRef(true) // Track if component is mounted
 
   // Function to fetch data
   const fetchData = useCallback(async () => {
@@ -20,11 +21,19 @@ export function usePolling(competitionId: number | null | undefined, interval = 
     try {
       console.log(`Polling: Fetching data for competition ID: ${competitionId}`)
       await loadCompetition(competitionId)
-      setLastUpdate(new Date())
-      setError(null)
+
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setLastUpdate(new Date())
+        setError(null)
+      }
     } catch (err) {
       console.error("Polling: Error fetching data:", err)
-      setError(`Failed to fetch data: ${err instanceof Error ? err.message : String(err)}`)
+
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setError(`Failed to fetch data: ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
   }, [competitionId, loadCompetition])
 
@@ -62,11 +71,13 @@ export function usePolling(competitionId: number | null | undefined, interval = 
   // Manually trigger a refresh
   const refresh = useCallback(() => {
     console.log("Polling: Manual refresh requested")
-    fetchData()
+    return fetchData()
   }, [fetchData])
 
   // Start/stop polling based on competitionId changes
   useEffect(() => {
+    mountedRef.current = true // Set mounted flag to true
+
     if (competitionId) {
       startPolling()
     } else {
@@ -75,6 +86,7 @@ export function usePolling(competitionId: number | null | undefined, interval = 
 
     // Clean up on unmount
     return () => {
+      mountedRef.current = false // Set mounted flag to false
       stopPolling()
     }
   }, [competitionId, startPolling, stopPolling])

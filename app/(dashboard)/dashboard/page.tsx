@@ -7,7 +7,7 @@ import FullPageLoader from "@/components/auth/loader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X } from "lucide-react"
+import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X, Tv2 } from "lucide-react"
 import CompetitionSettings from "@/components/competition-settings"
 import DataManagement from "@/components/data-management"
 import Results from "@/components/results"
@@ -192,6 +192,12 @@ const Dashboard = () => {
     }
   }
 
+  const handleOpenPublicDisplay = () => {
+    if (selectedCompetition) {
+      window.open(`/display/${selectedCompetition}`, "_blank", "noopener,noreferrer")
+    }
+  }
+
   const user = session?.user
 
   if (isLoading || isPending) {
@@ -259,6 +265,12 @@ const Dashboard = () => {
                 <LaptopMinimalCheck className="mr-2 h-4 w-4" /> View Judge Dashboard
               </Link>
             </Button>
+
+            {selectedCompetition && (
+              <Button variant="outline" onClick={handleOpenPublicDisplay} className="flex items-center gap-2">
+                <Tv2 className="h-4 w-4 mr-2" /> Public Display
+              </Button>
+            )}
           </div>
         </div>
 

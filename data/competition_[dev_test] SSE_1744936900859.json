@@ -39,7 +39,14 @@
       "name": "Jumil Pineda",
       "gender": "Female",
       "currentSegmentId": "1",
-      "imageUrl": "/uploads/contestants/contestant_1_c1e9e958-f9b4-45f0-8dbd-ab37ed794680.jpg"
+      "imageUrl": "/uploads/contestants/contestant_1_bb371585-ab32-4d3f-97dc-275a404a21a9.jpg"
+    },
+    {
+      "id": "2",
+      "name": "Pineda Jumil",
+      "gender": "Female",
+      "currentSegmentId": "1",
+      "imageUrl": "/uploads/contestants/contestant_2_44c1b776-d6b7-4919-bbb4-6348ed1a60eb.jpg"
     }
   ],
   "judges": [
@@ -47,6 +54,11 @@
       "id": "b4889a50-0352-4048-b3c6-02337c1e4fae",
       "name": "Louis Velasco",
       "accessCode": "L8BDF5"
+    },
+    {
+      "id": "fff0aae0-fa25-4b73-85bd-124a2d17bd12",
+      "name": "test",
+      "accessCode": "LRJZB3"
     }
   ],
   "scores": {},
