@@ -153,10 +153,7 @@ function ActiveCriteriaManager() {
                     const isChecked = isActive(segment.id, criterion.id)
 
                     return (
-                      <div
-                        key={criterion.id}
-                        className="flex items-center justify-between py-1 px-2 text-sm border-b last:border-0"
-                      >
+                      <div key={criterion.id} className="flex items-center justify-between py-1 px-2 text-sm">
                         <label htmlFor={checkboxId} className="flex items-center cursor-pointer flex-1">
                           <input
                             type="checkbox"
