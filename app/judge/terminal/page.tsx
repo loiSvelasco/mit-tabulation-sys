@@ -20,6 +20,7 @@ import {
   Play,
   User,
   LogOut,
+  Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -35,23 +36,35 @@ import {
 import { usePolling } from "@/hooks/usePolling"
 import { ImageViewer } from "@/components/image-viewer"
 
+// Define UI states to prevent flashing
+type UIState = "loading" | "finalized" | "scoring" | "no-criteria" | "error"
+
 export default function JudgeTerminal() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
+
+  // Use a single state to control what UI to show
+  const [uiState, setUIState] = useState<UIState>("loading")
+  const [sessionError, setSessionError] = useState<string | null>(null)
+
   const [judgeInfo, setJudgeInfo] = useState<{ id: string; name: string } | null>(null)
   const [competitionId, setCompetitionId] = useState<number | null>(null)
   const [competitionName, setCompetitionName] = useState<string>("")
   const [selectedContestantId, setSelectedContestantId] = useState<string | null>(null)
-  const [sessionError, setSessionError] = useState<string | null>(null)
   const [savingScores, setSavingScores] = useState<Set<string>>(new Set())
   const [isFinalized, setIsFinalized] = useState(false)
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false)
   const [finalizationStatus, setFinalizationStatus] = useState<Record<string, boolean>>({})
+  const [finalizationChecked, setFinalizationChecked] = useState(false)
+
+  // Track loading state to prevent flashing
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const finalizationCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const uiStateRef = useRef<UIState>("loading") // Track UI state in a ref to avoid race conditions
+  const previousFinalizedStateRef = useRef<boolean>(false) // Track previous finalized state
 
   // Use polling for real-time updates
   const {
@@ -91,6 +104,14 @@ export default function JudgeTerminal() {
     ? activeContestants.findIndex((c) => c.id === selectedContestantId) === activeContestants.length - 1
     : false
 
+  // Update UI state based on current conditions - this is the key function that determines what to show
+  const updateUIState = useCallback((newState: UIState) => {
+    // Update both the state and the ref to avoid race conditions
+    setUIState(newState)
+    uiStateRef.current = newState
+    console.log(`UI State updated to: ${newState}`)
+  }, [])
+
   // Session check function
   const checkSession = useCallback(async () => {
     try {
@@ -98,6 +119,7 @@ export default function JudgeTerminal() {
 
       if (!response.ok) {
         setSessionError("Your session has expired. Please log in again.")
+        updateUIState("error")
         return false
       }
 
@@ -105,6 +127,7 @@ export default function JudgeTerminal() {
 
       if (!data.user || data.user.role !== "judge") {
         setSessionError("Your session is invalid. Please log in again.")
+        updateUIState("error")
         return false
       }
 
@@ -112,11 +135,23 @@ export default function JudgeTerminal() {
     } catch (error) {
       console.error("Error checking session:", error)
       setSessionError("Failed to verify your session. Please log in again.")
+      updateUIState("error")
       return false
     }
-  }, [])
+  }, [updateUIState])
 
-  // Check if judge has already finalized any segments
+  // Function to determine the appropriate UI state based on current data
+  const determineUIState = useCallback(() => {
+    if (isFinalized) {
+      return "finalized"
+    } else if (activeCriteria.length === 0) {
+      return "no-criteria"
+    } else {
+      return "scoring"
+    }
+  }, [isFinalized, activeCriteria.length])
+
+  // Update the checkFinalizationStatus function to handle UI state changes when finalization status changes
   const checkFinalizationStatus = useCallback(
     async (compId: number, judgeId: string) => {
       try {
@@ -137,139 +172,177 @@ export default function JudgeTerminal() {
           setFinalizationStatus(statusMap)
 
           // Check if any active segments are already finalized
-          const anyFinalized = activeSegmentIds.some((segmentId) => statusMap[segmentId])
+          const anyFinalized = competitionSettings.segments.some((segment) => statusMap[segment.id])
+
+          // Store the previous finalized state before updating
+          const wasFinalized = isFinalized
+          previousFinalizedStateRef.current = wasFinalized
+
+          // Update finalization state
+          setIsFinalized(anyFinalized)
+          setFinalizationChecked(true)
 
           // If finalization status has changed from finalized to not finalized
-          if (isFinalized && !anyFinalized) {
+          if (wasFinalized && !anyFinalized && !isInitializing) {
+            console.log("Finalization status changed: Now allowed to edit scores")
             toast.success("You can now edit your scores again")
-            refresh() // Refresh data to get latest scores
-          }
 
-          setIsFinalized(anyFinalized)
+            // Refresh data to get latest scores
+            await refresh()
+
+            // Update UI state to scoring
+            updateUIState("scoring")
+          }
+          // If finalization status has changed from not finalized to finalized
+          else if (!wasFinalized && anyFinalized && !isInitializing) {
+            console.log("Finalization status changed: Now finalized")
+            updateUIState("finalized")
+          }
 
           return anyFinalized
         }
+
         return isFinalized // Return current state if request fails
       } catch (error) {
         console.error("Error checking finalization status:", error)
         return isFinalized // Return current state if request fails
       }
     },
-    [isFinalized, refresh],
+    [isFinalized, refresh, competitionSettings.segments, updateUIState, isInitializing],
   )
 
-  // Initial data loading
-  const loadInitialData = useCallback(async () => {
+  // Completely revamped initialization function to prevent flashing
+  const initialize = useCallback(async () => {
     if (dataLoadedRef.current) return
 
+    console.log("Starting initialization...")
+    setIsInitializing(true)
+
     try {
-      setIsLoading(true)
+      // Step 1: Check session and get judge info
+      console.log("Step 1: Checking session...")
+      const sessionResponse = await fetch("/api/judge/session")
 
-      // Check session and get judge info
-      const response = await fetch("/api/judge/session")
-      const data = await response.json()
-      console.log("Session data received:", data)
-
-      if (!response.ok) {
-        throw new Error(`Session check failed: ${response.status} ${response.statusText}`)
+      if (!sessionResponse.ok) {
+        throw new Error(`Session check failed: ${sessionResponse.status} ${sessionResponse.statusText}`)
       }
 
-      if (!data.user || data.user.role !== "judge") {
+      const sessionData = await sessionResponse.json()
+
+      if (!sessionData.user || sessionData.user.role !== "judge") {
         toast.error("You must be logged in as a judge to access this page")
         router.replace("/judge/login")
         return
       }
 
-      setJudgeInfo({
-        id: data.user.id,
-        name: data.user.name || `Judge ${data.user.id}`, // Fallback if name is not available
-      })
-      console.log("Judge info set:", { id: data.user.id, name: data.user.name || `Judge ${data.user.id}` })
+      const judgeId = sessionData.user.id
+      const judgeName = sessionData.user.name || `Judge ${judgeId}`
 
-      // Make sure we have a competition ID
-      if (!data.competitionId) {
+      // Step 2: Check if we have a competition ID
+      console.log("Step 2: Checking competition ID...")
+      if (!sessionData.competitionId) {
         toast.error("No competition assigned to this judge")
         router.replace("/judge/login")
         return
       }
 
-      setCompetitionId(data.competitionId)
+      const compId = sessionData.competitionId
 
-      // Load the competition data
-      try {
-        await loadCompetition(data.competitionId)
+      // Step 3: Load competition data
+      console.log("Step 3: Loading competition data...")
+      await loadCompetition(compId)
 
-        // Set competition name
-        setCompetitionName(competitionSettings.name)
+      // Step 4: Check finalization status
+      console.log("Step 4: Checking finalization status...")
+      const isJudgeFinalized = await checkFinalizationStatus(compId, judgeId)
 
-        // Initialize current scores from existing scores
-        if (data.user.id && activeCriteria.length > 0) {
-          const saved = new Set<string>()
-          const initialScores: Record<string, Record<string, number>> = {}
+      // Step 5: Initialize scores
+      console.log("Step 5: Initializing scores...")
+      const hasActiveCriteria = activeCriteria.length > 0
 
-          activeCriteria.forEach(({ segmentId, criterionId }) => {
-            if (!initialScores[segmentId]) {
-              initialScores[segmentId] = {}
-            }
+      const initialScores: Record<string, Record<string, number>> = {}
+      const saved = new Set<string>()
 
-            activeContestants
-              .filter((c) => c.currentSegmentId === segmentId)
-              .forEach((contestant) => {
-                const contestantScore = scores[segmentId]?.[contestant.id]?.[data.user.id]?.[criterionId]
-
-                if (contestantScore !== undefined) {
-                  if (!initialScores[segmentId][contestant.id]) {
-                    initialScores[segmentId][contestant.id] = {}
-                  }
-                  initialScores[segmentId][contestant.id][criterionId] = contestantScore
-
-                  // Mark this score as saved since it came from the database
-                  saved.add(`${contestant.id}-${criterionId}`)
-                }
-              })
-          })
-
-          setCurrentScores(initialScores)
-          setSavedContestants(saved)
-
-          // Set the first contestant as selected
-          if (activeContestants.length > 0 && !selectedContestantId) {
-            setSelectedContestantId(activeContestants[0].id)
+      if (hasActiveCriteria) {
+        activeCriteria.forEach(({ segmentId, criterionId }) => {
+          if (!initialScores[segmentId]) {
+            initialScores[segmentId] = {}
           }
-        }
 
-        // Check if judge has already finalized any segments
-        if (data.user.id && data.competitionId) {
-          await checkFinalizationStatus(data.competitionId, data.user.id)
-        }
+          contestants
+            .filter((c) => c.currentSegmentId === segmentId)
+            .forEach((contestant) => {
+              const contestantScore = scores[segmentId]?.[contestant.id]?.[judgeId]?.[criterionId]
 
-        dataLoadedRef.current = true
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Error loading competition:", error)
-        toast.error("Failed to load competition data")
-        router.replace("/judge/login")
+              if (contestantScore !== undefined) {
+                if (!initialScores[segmentId][contestant.id]) {
+                  initialScores[segmentId][contestant.id] = {}
+                }
+                initialScores[segmentId][contestant.id][criterionId] = contestantScore
+                saved.add(`${contestant.id}-${criterionId}`)
+              }
+            })
+        })
       }
+
+      // Step 6: Set all state at once to prevent re-renders
+      console.log("Step 6: Setting all state at once...")
+
+      // Determine final UI state
+      let finalState: UIState
+      if (isJudgeFinalized) {
+        finalState = "finalized"
+      } else if (!hasActiveCriteria) {
+        finalState = "no-criteria"
+      } else {
+        finalState = "scoring"
+      }
+
+      // Set all state variables
+      setJudgeInfo({ id: judgeId, name: judgeName })
+      setCompetitionId(compId)
+      setCompetitionName(competitionSettings.name)
+      setCurrentScores(initialScores)
+      setSavedContestants(saved)
+      setIsFinalized(isJudgeFinalized)
+
+      // Set initial contestant if in scoring mode
+      if (
+        finalState === "scoring" &&
+        contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId)).length > 0
+      ) {
+        setSelectedContestantId(contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId))[0].id)
+      }
+
+      // Mark data as loaded
+      dataLoadedRef.current = true
+
+      // Finally, update UI state and exit initialization mode
+      console.log(`Initialization complete. Setting UI state to: ${finalState}`)
+      updateUIState(finalState)
+      setIsInitializing(false)
     } catch (error) {
-      console.error("Error checking authentication:", error)
-      toast.error("Failed to authenticate. Please log in again.")
-      router.replace("/judge/login")
+      console.error("Error during initialization:", error)
+      toast.error("Failed to initialize the judge terminal. Please try again.")
+      setSessionError("Failed to initialize. Please log in again.")
+      updateUIState("error")
+      setIsInitializing(false)
     }
   }, [
     router,
     loadCompetition,
-    activeCriteria,
-    activeContestants,
-    scores,
-    selectedContestantId,
-    competitionSettings.name,
     checkFinalizationStatus,
+    activeCriteria,
+    contestants,
+    scores,
+    competitionSettings,
+    updateUIState,
   ])
 
-  // Setup session check and data loading
+  // Setup initialization and session check
   useEffect(() => {
-    // Load initial data
-    loadInitialData()
+    // Initialize the component
+    initialize()
 
     // Set up periodic session check (every 5 minutes)
     sessionCheckIntervalRef.current = setInterval(
@@ -295,7 +368,7 @@ export default function JudgeTerminal() {
         clearInterval(finalizationCheckIntervalRef.current)
       }
     }
-  }, [loadInitialData, checkSession, router])
+  }, [initialize, checkSession, router])
 
   // Set up finalization status check - more frequent when finalized
   useEffect(() => {
@@ -305,7 +378,7 @@ export default function JudgeTerminal() {
       finalizationCheckIntervalRef.current = null
     }
 
-    if (competitionId && judgeInfo) {
+    if (competitionId && judgeInfo && !isInitializing) {
       // Check more frequently (every 3 seconds) when finalized to detect when admin allows editing
       const checkInterval = isFinalized ? 3000 : 15000
 
@@ -319,25 +392,11 @@ export default function JudgeTerminal() {
         clearInterval(finalizationCheckIntervalRef.current)
       }
     }
-  }, [competitionId, judgeInfo, isFinalized, checkFinalizationStatus])
-
-  // Set selected contestant when contestants change and none is selected
-  useEffect(() => {
-    if (activeContestants.length > 0 && !selectedContestantId && !isLoading) {
-      setSelectedContestantId(activeContestants[0].id)
-    }
-  }, [activeContestants, selectedContestantId, isLoading])
-
-  // Refresh data periodically to get updates from other judges
-  useEffect(() => {
-    if (lastUpdate) {
-      console.log(`Last data update: ${lastUpdate.toLocaleTimeString()}`)
-    }
-  }, [lastUpdate])
+  }, [competitionId, judgeInfo, isFinalized, checkFinalizationStatus, isInitializing])
 
   // Update savedContestants when scores change
   useEffect(() => {
-    if (judgeInfo && activeCriteria.length > 0) {
+    if (judgeInfo && activeCriteria.length > 0 && !isInitializing) {
       const saved = new Set<string>()
 
       // Mark all scores from the database as saved
@@ -370,7 +429,7 @@ export default function JudgeTerminal() {
         return prev
       })
     }
-  }, [scores, judgeInfo, activeCriteria, activeContestants])
+  }, [scores, judgeInfo, activeCriteria, activeContestants, isInitializing])
 
   const handleLogout = async () => {
     try {
@@ -383,7 +442,10 @@ export default function JudgeTerminal() {
 
   const handleScoreChange = async (segmentId: string, contestantId: string, criterionId: string, score: number) => {
     // Don't allow changes if scores are finalized
-    if (isFinalized) return
+    if (isFinalized) {
+      toast.error("You cannot change scores after finalizing. Please contact an administrator.")
+      return
+    }
 
     // Update local state first
     setCurrentScores((prev) => {
@@ -412,6 +474,20 @@ export default function JudgeTerminal() {
         setSessionError("Your session has expired. Please log in again.")
         setTimeout(() => router.replace("/judge/login"), 3000)
         return
+      }
+
+      // Double-check finalization status before saving to prevent race conditions
+      if (competitionId) {
+        const stillFinalized = await checkFinalizationStatus(competitionId, judgeInfo.id)
+        if (stillFinalized) {
+          toast.error("Your scores are finalized. Changes were not saved.")
+          setSavingScores((prev) => {
+            const newSet = new Set(prev)
+            newSet.delete(scoreKey)
+            return newSet
+          })
+          return
+        }
       }
 
       // Save to database
@@ -519,6 +595,9 @@ export default function JudgeTerminal() {
     setIsFinalized(true)
     setShowFinalizeDialog(false)
 
+    // Update UI state immediately to prevent flashing
+    updateUIState("finalized")
+
     // Update finalization status in the database
     if (judgeInfo && competitionId) {
       try {
@@ -598,8 +677,20 @@ export default function JudgeTerminal() {
     return scores[segmentId]?.[contestantId]?.[judgeInfo.id]?.[criterionId] || 0
   }
 
-  // Show session error if present
-  if (sessionError) {
+  // Render based on UI state
+
+  // Loading state
+  if (uiState === "loading" || isInitializing) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p>Loading judge terminal...</p>
+      </div>
+    )
+  }
+
+  // Error state
+  if (uiState === "error") {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <Card className="w-[400px]">
@@ -617,15 +708,8 @@ export default function JudgeTerminal() {
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading competition data...</p>
-      </div>
-    )
-  }
-
-  if (activeCriteria.length === 0) {
+  // No criteria state
+  if (uiState === "no-criteria") {
     return (
       <div className="min-h-screen bg-muted/30">
         <main className="container mx-auto py-6">
@@ -650,6 +734,116 @@ export default function JudgeTerminal() {
     )
   }
 
+  // Finalized state
+  if (uiState === "finalized") {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        {/* Welcome Banner with Competition Info */}
+        <div className="bg-primary/10 py-4 px-4 mb-6">
+          <div className="container mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  {competitionName}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Welcome, <span className="font-medium">{judgeInfo?.name || "Judge"}</span>! You are judging the{" "}
+                  {activeSegments.map((s) => s.name).join(" & ")} segment(s).
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-green-100 text-green-800">
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Scores Finalized
+                </Badge>
+                <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center gap-1">
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <main className="container mx-auto py-6">
+          {/* Layout with scores sidebar */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left panel - Contestants list with scores (read-only) */}
+            <div className="lg:col-span-4">
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle>Your Finalized Scores</CardTitle>
+                  <CardDescription>Review your submitted scores for all contestants</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contestant</TableHead>
+                          {activeCriteriaDetails.map(({ criterionId, criterion }) => (
+                            <TableHead key={criterionId} className="whitespace-nowrap">
+                              {criterion?.name}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activeContestants.map((contestant) => (
+                          <TableRow key={contestant.id}>
+                            <TableCell className="font-medium">{contestant.name}</TableCell>
+
+                            {activeCriteriaDetails.map(({ segmentId, criterionId }) => {
+                              // Only show scores for criteria in the contestant's segment
+                              if (contestant.currentSegmentId !== segmentId) {
+                                return <TableCell key={criterionId}>-</TableCell>
+                              }
+
+                              const score = getContestantCriterionScore(contestant.id, segmentId, criterionId)
+
+                              return (
+                                <TableCell key={criterionId} className="text-green-600 font-medium">
+                                  {score}
+                                </TableCell>
+                              )
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right panel - Finalization message */}
+            <div className="lg:col-span-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Scores Finalized
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                    <h3 className="text-xl font-semibold text-green-700 mb-2">Thank You!</h3>
+                    <p className="text-green-600 mb-4">Your scores have been finalized and submitted successfully.</p>
+                    <p className="text-muted-foreground">
+                      Please wait for the next criteria to be activated for judging, or check with the competition
+                      administrator for further instructions.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Scoring state (default)
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Finalize Confirmation Dialog */}
@@ -808,26 +1002,7 @@ export default function JudgeTerminal() {
 
           {/* Right panel - Scoring interface for selected contestant */}
           <div className="lg:col-span-8">
-            {isFinalized ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    Scores Finalized
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                    <h3 className="text-xl font-semibold text-green-700 mb-2">Thank You!</h3>
-                    <p className="text-green-600 mb-4">Your scores have been finalized and submitted successfully.</p>
-                    <p className="text-muted-foreground">
-                      Please wait for the next criteria to be activated for judging, or check with the competition
-                      administrator for further instructions.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : currentContestant ? (
+            {currentContestant ? (
               <div className="grid grid-cols-1 gap-6">
                 {/* Contestant Image Card */}
                 <Card className="overflow-hidden">
