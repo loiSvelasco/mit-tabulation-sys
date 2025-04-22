@@ -21,7 +21,6 @@ import {
   User,
   LogOut,
   Loader2,
-  Lock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -33,7 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert"
+} from "@/components/ui/alert-dialog"
 import { usePolling } from "@/hooks/usePolling"
 import { ImageViewer } from "@/components/image-viewer"
 
@@ -432,38 +431,6 @@ export default function JudgeTerminal() {
     }
   }, [scores, judgeInfo, activeCriteria, activeContestants, isInitializing])
 
-  // Add a dedicated effect to watch for changes in activeCriteria
-  // This should be added after the existing useEffect hooks, before the rendering logic
-
-  // Add this new useEffect hook
-  useEffect(() => {
-    // Only run this effect if we're not initializing and data is loaded
-    if (!isInitializing && dataLoadedRef.current) {
-      console.log("Active criteria changed:", activeCriteria.length > 0 ? "Has criteria" : "No criteria")
-
-      // Update UI state based on current conditions
-      if (isFinalized) {
-        updateUIState("finalized")
-      } else if (activeCriteria.length === 0) {
-        updateUIState("no-criteria")
-        // Clear selected contestant when there are no criteria
-        setSelectedContestantId(null)
-      } else {
-        updateUIState("scoring")
-
-        // If we're transitioning from no criteria to having criteria,
-        // and we don't have a selected contestant, select the first one
-        if (uiStateRef.current === "no-criteria" && selectedContestantId === null) {
-          const activeContestantsInSegments = contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId))
-
-          if (activeContestantsInSegments.length > 0) {
-            setSelectedContestantId(activeContestantsInSegments[0].id)
-          }
-        }
-      }
-    }
-  }, [activeCriteria, isFinalized, isInitializing, updateUIState, contestants, selectedContestantId])
-
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
@@ -473,23 +440,10 @@ export default function JudgeTerminal() {
     }
   }
 
-  // Check if a criterion is pre-judged
-  const isPrejudgedCriterion = (segmentId: string, criterionId: string) => {
-    const segment = competitionSettings.segments.find((s) => s.id === segmentId)
-    const criterion = segment?.criteria.find((c) => c.id === criterionId)
-    return criterion?.isPrejudged || false
-  }
-
   const handleScoreChange = async (segmentId: string, contestantId: string, criterionId: string, score: number) => {
     // Don't allow changes if scores are finalized
     if (isFinalized) {
       toast.error("You cannot change scores after finalizing. Please contact an administrator.")
-      return
-    }
-
-    // Don't allow changes to pre-judged criteria
-    if (isPrejudgedCriterion(segmentId, criterionId)) {
-      toast.error("This criterion is pre-judged. You cannot modify the score.")
       return
     }
 
@@ -596,9 +550,6 @@ export default function JudgeTerminal() {
       const contestant = activeContestants.find((c) => c.id === selectedContestantId)
       if (!contestant || contestant.currentSegmentId !== segmentId) return false
 
-      // Skip pre-judged criteria when checking for unsaved
-      if (isPrejudgedCriterion(segmentId, criterionId)) return false
-
       return currentScores[segmentId]?.[selectedContestantId]?.[criterionId] === undefined
     })
 
@@ -628,9 +579,6 @@ export default function JudgeTerminal() {
     // Make sure all scores are saved
     if (judgeInfo) {
       activeCriteria.forEach(({ segmentId, criterionId }) => {
-        // Skip pre-judged criteria
-        if (isPrejudgedCriterion(segmentId, criterionId)) return
-
         activeContestants.forEach((contestant) => {
           if (contestant.currentSegmentId !== segmentId) return
 
@@ -836,7 +784,6 @@ export default function JudgeTerminal() {
                           {activeCriteriaDetails.map(({ criterionId, criterion }) => (
                             <TableHead key={criterionId} className="whitespace-nowrap">
                               {criterion?.name}
-                              {criterion?.isPrejudged && <span className="ml-1 text-xs">(Pre-judged)</span>}
                             </TableHead>
                           ))}
                         </TableRow>
@@ -846,22 +793,17 @@ export default function JudgeTerminal() {
                           <TableRow key={contestant.id}>
                             <TableCell className="font-medium">{contestant.name}</TableCell>
 
-                            {activeCriteriaDetails.map(({ segmentId, criterionId, criterion }) => {
+                            {activeCriteriaDetails.map(({ segmentId, criterionId }) => {
                               // Only show scores for criteria in the contestant's segment
                               if (contestant.currentSegmentId !== segmentId) {
                                 return <TableCell key={criterionId}>-</TableCell>
                               }
 
                               const score = getContestantCriterionScore(contestant.id, segmentId, criterionId)
-                              const isPrejudged = criterion?.isPrejudged
 
                               return (
-                                <TableCell
-                                  key={criterionId}
-                                  className={`font-medium ${isPrejudged ? "text-purple-600" : "text-green-600"}`}
-                                >
+                                <TableCell key={criterionId} className="text-green-600 font-medium">
                                   {score}
-                                  {isPrejudged && <Lock className="inline-block ml-1 h-3 w-3 text-purple-600" />}
                                 </TableCell>
                               )
                             })}
@@ -962,18 +904,8 @@ export default function JudgeTerminal() {
                 </Button>
               </div>
               {activeCriteriaDetails.map(({ criterionId, criterion }) => (
-                <Badge
-                  key={criterionId}
-                  variant="outline"
-                  className={criterion?.isPrejudged ? "bg-purple-100" : "bg-secondary/20"}
-                >
-                  {criterion?.isPrejudged ? (
-                    <Lock className="h-3 w-3 mr-1" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                  )}
-                  {criterion?.name}
-                  {criterion?.isPrejudged && <span className="ml-1 text-xs">(Pre-judged)</span>}
+                <Badge key={criterionId} variant="outline" className="bg-secondary/20">
+                  <CheckCircle className="h-3 w-3 mr-1" /> {criterion?.name}
                 </Badge>
               ))}
               <Button variant="outline" size="sm" onClick={handleLogout} className="ml-2 flex items-center gap-1">
@@ -1017,7 +949,6 @@ export default function JudgeTerminal() {
                         {activeCriteriaDetails.map(({ criterionId, criterion }) => (
                           <TableHead key={criterionId} className="whitespace-nowrap">
                             {criterion?.name}
-                            {criterion?.isPrejudged && <span className="ml-1 text-xs">(Pre)</span>}
                           </TableHead>
                         ))}
                       </TableRow>
@@ -1034,7 +965,7 @@ export default function JudgeTerminal() {
                           >
                             <TableCell className="font-medium">{contestant.name}</TableCell>
 
-                            {activeCriteriaDetails.map(({ segmentId, criterionId, criterion }) => {
+                            {activeCriteriaDetails.map(({ segmentId, criterionId }) => {
                               // Only show scores for criteria in the contestant's segment
                               if (contestant.currentSegmentId !== segmentId) {
                                 return <TableCell key={criterionId}>-</TableCell>
@@ -1043,7 +974,6 @@ export default function JudgeTerminal() {
                               const score = getContestantCriterionScore(contestant.id, segmentId, criterionId)
                               const isScored = savedContestants.has(`${contestant.id}-${criterionId}`)
                               const isSaving = savingScores.has(`${contestant.id}-${criterionId}`)
-                              const isPrejudged = criterion?.isPrejudged
 
                               return (
                                 <TableCell
@@ -1052,14 +982,11 @@ export default function JudgeTerminal() {
                                     isSaving
                                       ? "text-amber-600 font-medium"
                                       : isScored
-                                        ? isPrejudged
-                                          ? "text-purple-600 font-medium"
-                                          : "text-green-600 font-medium"
+                                        ? "text-green-600 font-medium"
                                         : "text-muted-foreground"
                                   }
                                 >
                                   {isSaving ? `${score}...` : score}
-                                  {isPrejudged && <Lock className="inline-block ml-1 h-3 w-3 text-purple-600" />}
                                 </TableCell>
                               )
                             })}
@@ -1155,54 +1082,30 @@ export default function JudgeTerminal() {
 
                           const isScored = savedContestants.has(`${currentContestant.id}-${criterionId}`)
                           const isSaving = savingScores.has(`${currentContestant.id}-${criterionId}`)
-                          const isPrejudged = criterion.isPrejudged
 
                           return (
-                            <div
-                              key={criterionId}
-                              className={`border rounded p-3 ${isPrejudged ? "bg-purple-50" : "bg-card"}`}
-                            >
+                            <div key={criterionId} className="border rounded p-3 bg-card">
                               <div className="flex flex-col gap-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-medium flex items-center">
-                                      {criterion.name}
-                                      {isPrejudged && (
-                                        <Badge variant="outline" className="ml-2 bg-purple-100">
-                                          <Lock className="h-3 w-3 mr-1" /> Pre-judged
-                                        </Badge>
-                                      )}
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground">
-                                      {criterion.description || "No description"}
-                                      {criterion.maxScore && (
-                                        <span className="ml-1 font-medium">(Max: {criterion.maxScore})</span>
-                                      )}
-                                    </p>
-                                  </div>
+                                <div>
+                                  <h4 className="font-medium">{criterion.name}</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {criterion.description || "No description"}
+                                    {criterion.maxScore && (
+                                      <span className="ml-1 font-medium">(Max: {criterion.maxScore})</span>
+                                    )}
+                                  </p>
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
-                                  {isPrejudged ? (
-                                    <div className="flex items-center">
-                                      <span className="text-lg font-medium text-purple-700">{score}</span>
-                                      <span className="ml-2 text-sm text-purple-600">
-                                        ({((score / criterion.maxScore) * 100).toFixed(1)}%)
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <JudgeScoreDropdown
-                                      maxScore={criterion.maxScore}
-                                      increment={0.25}
-                                      value={score}
-                                      onChange={(value) =>
-                                        handleScoreChange(segmentId, currentContestant.id, criterionId, value)
-                                      }
-                                    />
-                                  )}
+                                  <JudgeScoreDropdown
+                                    maxScore={criterion.maxScore}
+                                    increment={0.25}
+                                    value={score}
+                                    onChange={(value) =>
+                                      handleScoreChange(segmentId, currentContestant.id, criterionId, value)
+                                    }
+                                  />
                                   <div className="ml-2 min-w-[80px] text-right">
-                                    {isPrejudged ? (
-                                      <span className="text-purple-600 text-sm">Pre-judged</span>
-                                    ) : isSaving ? (
+                                    {isSaving ? (
                                       <span className="text-amber-600 text-sm">Saving...</span>
                                     ) : isScored ? (
                                       <span className="text-green-600 text-sm">Saved</span>
