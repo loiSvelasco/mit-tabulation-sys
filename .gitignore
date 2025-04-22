@@ -3,6 +3,7 @@ task_*.md
 survey.md
 TODO*.txt
 /public/uploads/contestants/
+/scripts/
 # dependencies
 /node_modules
 /.pnp

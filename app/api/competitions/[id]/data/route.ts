@@ -1,6 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { promises as fs } from "fs"
-import path from "path"
 import { query } from "@/lib/db_config"
 import { getCurrentUser, verifyToken } from "@/lib/auth"
 
@@ -30,7 +28,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           // Check if this judge has access to this competition
           if (judgeUser.competitionId === competitionId) {
             // For judges, get competition without checking created_by
-            const competitions = await query("SELECT * FROM competitions WHERE id = ?", [competitionId])
+            const competitions = await query("SELECT competition_data FROM competitions WHERE id = ?", [competitionId])
 
             if (!competitions.length) {
               return NextResponse.json({ message: "Competition not found" }, { status: 404 })
@@ -38,12 +36,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
             const competition = competitions[0]
 
-            // Read the competition data file
-            const filePath = path.join(process.cwd(), "data", competition.filename)
-            const fileData = await fs.readFile(filePath, "utf8")
-
-            // Parse the JSON data
-            const competitionData = JSON.parse(fileData)
+            // Parse the JSON data from the database
+            const competitionData = JSON.parse(competition.competition_data || "{}")
 
             return NextResponse.json(competitionData, { status: 200 })
           } else {
@@ -66,7 +60,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const userId = user.id
 
     // Get competition details from database for admin users
-    const competitions = await query("SELECT * FROM competitions WHERE id = ? AND created_by = ?", [
+    const competitions = await query("SELECT competition_data FROM competitions WHERE id = ? AND created_by = ?", [
       competitionId,
       userId.toString(),
     ])
@@ -77,12 +71,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     const competition = competitions[0]
 
-    // Read the competition data file
-    const filePath = path.join(process.cwd(), "data", competition.filename)
-    const fileData = await fs.readFile(filePath, "utf8")
-
-    // Parse the JSON data
-    const competitionData = JSON.parse(fileData)
+    // Parse the JSON data from the database
+    const competitionData = JSON.parse(competition.competition_data || "{}")
 
     return NextResponse.json(competitionData, { status: 200 })
   } catch (error) {

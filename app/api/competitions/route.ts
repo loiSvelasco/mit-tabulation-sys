@@ -1,6 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { promises as fs } from "fs"
-import path from "path"
 import { query } from "@/lib/db_config"
 import { getCurrentUser } from "@/lib/auth"
 
@@ -25,11 +23,14 @@ export async function POST(request: NextRequest) {
 
     console.log("API: Request to save competition. Competition ID:", competitionId, "Name:", competitionName)
 
+    // Convert competition data to JSON string for storage
+    const competitionDataJson = JSON.stringify(competitionData)
+
     // Check if we're updating an existing competition
     if (competitionId) {
       console.log("API: Updating existing competition with ID:", competitionId)
 
-      // Get the existing competition to check ownership and get the filename
+      // Get the existing competition to check ownership
       const existingCompetitions = await query("SELECT * FROM competitions WHERE id = ? AND created_by = ?", [
         competitionId,
         userId.toString(),
@@ -39,17 +40,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: "Competition not found or not owned by you" }, { status: 404 })
       }
 
-      const existingCompetition = existingCompetitions[0]
-      const filename = existingCompetition.filename
-
-      // Update the file with new data
-      const dataDir = path.join(process.cwd(), "data")
-      await fs.writeFile(path.join(dataDir, filename), JSON.stringify(competitionData, null, 2))
-
-      // Update the competition in the database
-      await query("UPDATE competitions SET name = ?, is_active = ? WHERE id = ?", [
+      // Update the competition in the database with the full data
+      await query("UPDATE competitions SET name = ?, is_active = ?, competition_data = ? WHERE id = ?", [
         competitionName,
         activeStatus,
+        competitionDataJson,
         competitionId,
       ])
 
@@ -57,7 +52,6 @@ export async function POST(request: NextRequest) {
         {
           id: competitionId,
           name: competitionName,
-          filename,
           message: "Competition updated successfully",
         },
         { status: 200 },
@@ -66,21 +60,10 @@ export async function POST(request: NextRequest) {
       // Create a new competition
       console.log("API: Creating a new competition with name:", competitionName)
 
-      // Generate filename
-      const timestamp = Date.now()
-      const filename = `competition_${competitionName.trim()}_${timestamp}.json`
-
-      // Ensure data directory exists
-      const dataDir = path.join(process.cwd(), "data")
-      await fs.mkdir(dataDir, { recursive: true })
-
-      // Save competition data to file
-      await fs.writeFile(path.join(dataDir, filename), JSON.stringify(competitionData, null, 2))
-
-      // Save competition to database
+      // Save competition directly to database
       const result = await query(
-        "INSERT INTO competitions (name, filename, created_by, is_active) VALUES (?, ?, ?, ?)",
-        [competitionName, filename, userId.toString(), activeStatus],
+        "INSERT INTO competitions (name, created_by, is_active, competition_data) VALUES (?, ?, ?, ?)",
+        [competitionName, userId.toString(), activeStatus, competitionDataJson],
       )
 
       console.log("API: New competition created with ID:", result.insertId)
@@ -89,7 +72,6 @@ export async function POST(request: NextRequest) {
         {
           id: result.insertId,
           name: competitionName,
-          filename,
           message: "Competition saved successfully",
         },
         { status: 201 },
@@ -107,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Add or fix the GET method
+// GET method to list competitions
 export async function GET(request: NextRequest) {
   try {
     // Use getCurrentUser to authenticate the request
@@ -122,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     // Get all competitions for the current user
     const competitions = await query(
-      `SELECT id, name, filename, created_at, is_active 
+      `SELECT id, name, created_at, is_active 
        FROM competitions 
        WHERE created_by = ? 
        ORDER BY created_at DESC`,
