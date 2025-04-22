@@ -3,7 +3,7 @@ import { admin } from "better-auth/plugins/admin"
 import { createPool } from "mysql2/promise"
 import jwt from "jsonwebtoken"
 import { cookies, headers } from "next/headers"
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
 // Interface for the JWT payload
 export interface TokenPayload {
@@ -69,40 +69,84 @@ export function createToken(payload: Omit<TokenPayload, "iat" | "exp">): string 
   })
 }
 
-// Modified getCurrentUser function for auth.ts
+// Modified getCurrentUser function with improved debugging and error handling
 export async function getCurrentUser(req: NextRequest) {
-  const cookieStore = await cookies()
-
-  // Look for the BetterAuth session token instead of auth-token
-  const token = cookieStore.get("better-auth.session_token")?.value
-
-  if (!token) {
-    return null
-  }
-
-  // You'll need to modify this part to work with BetterAuth's token format
-  // BetterAuth likely has its own way to verify the session
-
-  // For now, let's try to use your existing auth handler
   try {
-    // Use BetterAuth's session verification instead of your custom JWT verification
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
+    console.log("getCurrentUser called")
 
-    if (!session || !session.user) {
+    // Log all cookies for debugging
+    const cookieHeader = req.headers.get("cookie")
+    console.log("Cookie header:", cookieHeader)
+
+    // Try to get cookies using Next.js cookies() API
+    let token
+    try {
+      const cookieStore = cookies()
+      token = cookieStore.get("better-auth.session_token")?.value
+      console.log("Token from cookies() API:", token ? "Found" : "Not found")
+    } catch (error) {
+      console.error("Error accessing cookies() API:", error)
+    }
+
+    // If token not found via cookies() API, try to parse from cookie header
+    if (!token && cookieHeader) {
+      const cookies = cookieHeader.split(";").map((c) => c.trim())
+      const sessionCookie = cookies.find((c) => c.startsWith("better-auth.session_token="))
+      if (sessionCookie) {
+        token = sessionCookie.split("=")[1]
+        console.log("Token from cookie header:", token ? "Found" : "Not found")
+      }
+    }
+
+    if (!token) {
+      console.log("No session token found in cookies")
       return null
     }
 
-    // Return the user data from the session
-    return {
-      id: session.user.id,
-      email: session.user.email,
-      role: session.user.role || "user",
-      // Add other fields as needed
+    // Try to get the session using better-auth
+    try {
+      console.log("Attempting to get session with better-auth")
+      const headersList = headers()
+      console.log("Headers available:", Array.from(headersList.keys()))
+
+      const session = await auth.api.getSession({
+        headers: headersList,
+      })
+
+      console.log("Session result:", session ? "Session found" : "No session found")
+
+      if (!session || !session.user) {
+        console.log("No user in session")
+        return null
+      }
+
+      console.log("User found in session:", session.user.id)
+
+      // Return the user data from the session
+      return {
+        id: session.user.id,
+        email: session.user.email,
+        role: session.user.role || "user",
+        // Add other fields as needed
+      }
+    } catch (error) {
+      console.error("Error getting session with better-auth:", error)
+
+      // TEMPORARY FALLBACK FOR TESTING ONLY - REMOVE IN PRODUCTION
+      // This is just to test if the database operations work without auth
+      if (process.env.VERCEL_ENV === "preview" && process.env.ALLOW_TEST_USER === "true") {
+        console.log("Using test user fallback")
+        return {
+          id: "test-user",
+          email: "test@example.com",
+          role: "admin",
+        }
+      }
+
+      return null
     }
   } catch (error) {
-    console.error("Session verification error:", error)
+    console.error("Unexpected error in getCurrentUser:", error)
     return null
   }
 }
