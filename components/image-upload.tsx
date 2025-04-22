@@ -19,6 +19,7 @@ export function ImageUpload({ imageUrl, onImageUpload, onImageRemove, size = "md
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [imageError, setImageError] = useState(false)
 
   // Determine dimensions based on size prop
   const getDimensions = () => {
@@ -57,6 +58,7 @@ export function ImageUpload({ imageUrl, onImageUpload, onImageRemove, size = "md
 
     try {
       await onImageUpload(file)
+      setImageError(false)
     } catch (err) {
       setError("Failed to upload image")
       console.error(err)
@@ -73,6 +75,9 @@ export function ImageUpload({ imageUrl, onImageUpload, onImageRemove, size = "md
     onImageRemove()
   }
 
+  // Check if the URL is a Vercel Blob URL or a local URL
+  const isExternalUrl = imageUrl?.startsWith("http")
+
   return (
     <div className={`flex flex-col items-center ${className}`}>
       <div
@@ -81,13 +86,19 @@ export function ImageUpload({ imageUrl, onImageUpload, onImageRemove, size = "md
       >
         {imageUrl ? (
           <>
-            <Image
-              src={imageUrl || "/placeholder.svg"}
-              alt="Uploaded image"
-              fill
-              style={{ objectFit: "cover" }}
-              sizes={`${width}px`}
-            />
+            {imageError ? (
+              <div className="text-destructive text-xs">Image failed to load</div>
+            ) : (
+              <Image
+                src={imageUrl || "/placeholder.svg"}
+                alt="Uploaded image"
+                fill
+                style={{ objectFit: "cover" }}
+                sizes={`${width}px`}
+                onError={() => setImageError(true)}
+                unoptimized={isExternalUrl} // Skip optimization for external URLs if needed
+              />
+            )}
             <Button
               variant="destructive"
               size="icon"

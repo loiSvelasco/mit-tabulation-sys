@@ -145,10 +145,12 @@ const EnhancedJudgeScoring = () => {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to upload image")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to upload image")
       }
 
       const { imageUrl } = await response.json()
+      console.log("Image uploaded successfully:", imageUrl)
 
       // Update the contestant with the new image URL
       updateContestantImage(contestantId, imageUrl)
@@ -156,14 +158,14 @@ const EnhancedJudgeScoring = () => {
       return imageUrl
     } catch (error) {
       console.error("Error uploading image:", error)
-      toast.error("Failed to upload image")
+      toast.error(`Failed to upload image: ${error.message}`)
       throw error
     }
   }
 
   // Handle image removal for a contestant
   const handleImageRemove = (contestantId: string) => {
-    updateContestantImage(contestantId, undefined)
+    updateContestantImage(contestantId, null)
   }
 
   return (
