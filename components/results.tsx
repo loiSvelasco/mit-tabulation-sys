@@ -20,6 +20,7 @@ import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { usePolling } from "@/hooks/usePolling"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
+import { PrintResults } from "@/components/print-results"
 
 export function Results() {
   const {
@@ -434,7 +435,7 @@ export function Results() {
                   <span className="font-medium">Advancing:</span> {currentSegment?.advancingCandidates || 0}
                 </p>
               </div>
-
+              {/* <PrintResults key={currentSegment?.id} segmentId={currentSegment?.id} /> */}
               <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment}>
                 Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
               </Button>

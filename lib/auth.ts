@@ -23,7 +23,6 @@ export const auth = betterAuth({
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
-    port: process.env.MYSQL_PORT,
   }),
 
   emailAndPassword: {
@@ -69,79 +68,41 @@ export function createToken(payload: Omit<TokenPayload, "iat" | "exp">): string 
   })
 }
 
-// Modified getCurrentUser function with improved debugging and error handling
+// Modified getCurrentUser function for auth.ts
 export async function getCurrentUser(req: NextRequest) {
   try {
-    console.log("getCurrentUser called")
+    // Properly await the cookieStore
+    const cookieStore = cookies()
 
-    // TEMPORARY BYPASS FOR TESTING
-    // This allows the application to work while we sort out authentication issues
-    if (process.env.ALLOW_TEST_USER === "true") {
-      console.log("Using test user bypass")
-      return {
-        id: "test-user",
-        email: "test@example.com",
-        role: "admin",
-      }
-    }
+    // Log for debugging
+    console.log("Cookie header:", req.headers.get("cookie"))
 
-    // Log all cookies for debugging
-    const cookieHeader = req.headers.get("cookie")
-    console.log("Cookie header:", cookieHeader)
+    let token: string | undefined
 
-    // Try to get cookies using Next.js cookies() API
-    let token
-    try {
-      const cookieStore = cookies()
+    // Check for both regular and __Secure- prefixed cookie names
+    token =
+      (await cookieStore).get("better-auth.session_token")?.value ||
+      (await cookieStore).get("__Secure-better-auth.session_token")?.value
 
-      // Check for both regular and __Secure- prefixed cookie names
-      token =
-        cookieStore.get("better-auth.session_token")?.value ||
-        cookieStore.get("__Secure-better-auth.session_token")?.value
-
-      console.log("Token from cookies() API:", token ? "Found" : "Not found")
-    } catch (error) {
-      console.error("Error accessing cookies() API:", error)
-    }
-
-    // If token not found via cookies() API, try to parse from cookie header
-    if (!token && cookieHeader) {
-      const cookies = cookieHeader.split(";").map((c) => c.trim())
-
-      // Check for both regular and __Secure- prefixed cookie names
-      const sessionCookie = cookies.find(
-        (c) => c.startsWith("better-auth.session_token=") || c.startsWith("__Secure-better-auth.session_token="),
-      )
-
-      if (sessionCookie) {
-        token = sessionCookie.split("=")[1]
-        console.log("Token from cookie header:", token ? "Found" : "Not found")
-      }
-    }
+    console.log("Token from cookies() API:", token ? "Found" : "Not found")
 
     if (!token) {
-      console.log("No session token found in cookies")
       return null
     }
 
-    // Try to get the session using better-auth
+    // Use BetterAuth's session verification instead of your custom JWT verification
     try {
       console.log("Attempting to get session with better-auth")
-      const headersList = headers()
+      const headersList = await headers()
       console.log("Headers available:", Array.from(headersList.keys()))
 
       const session = await auth.api.getSession({
         headers: headersList,
       })
 
-      console.log("Session result:", session ? "Session found" : "No session found")
-
       if (!session || !session.user) {
-        console.log("No user in session")
         return null
       }
-
-      console.log("User found in session:", session.user.id)
 
       // Return the user data from the session
       return {
@@ -151,11 +112,11 @@ export async function getCurrentUser(req: NextRequest) {
         // Add other fields as needed
       }
     } catch (error) {
-      console.error("Error getting session with better-auth:", error)
+      console.error("Session verification error:", error)
       return null
     }
   } catch (error) {
-    console.error("Unexpected error in getCurrentUser:", error)
+    console.error("Error in getCurrentUser:", error)
     return null
   }
 }

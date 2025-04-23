@@ -4,7 +4,7 @@ import type React from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { convertScoresToRanks } from "@/utils/rankingUtils"
-
+import { PrintCriteriaRanking } from "@/components/print-criteria-ranking"
 interface Props {
   segmentId: string
 }
@@ -145,8 +145,13 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Criteria Breakdown</h2>
-      <p className="text-sm text-muted-foreground mb-4">Average scores per criterion across all judges</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Criteria Breakdown</h2>
+          <p className="text-sm text-muted-foreground mb-4">Average scores per criterion across all judges</p>
+        </div>
+        <PrintCriteriaRanking className="float-right" key={segment?.id} segmentId={segment?.id} />
+      </div>
 
       {separateByGender ? (
         <div className="space-y-6">

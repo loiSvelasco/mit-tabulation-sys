@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
+import { PrintResults } from "../print-results"
 
 interface Props {
   segmentId: string
@@ -496,11 +497,16 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-2">Final Rankings</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Using <span className="font-medium">{competitionSettings.ranking.method.toUpperCase()}</span> ranking method
-        with <span className="font-medium">{competitionSettings.ranking.tiebreaker}</span> tiebreaker
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold mb-2">Final Rankings</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Using <span className="font-medium">{competitionSettings.ranking.method.toUpperCase()}</span> ranking method
+            with <span className="font-medium">{competitionSettings.ranking.tiebreaker}</span> tiebreaker
+          </p>
+        </div>
+        <PrintResults className="float-right" key={segment?.id} segmentId={segment?.id} />
+      </div>
 
       {separateByGender ? (
         <div className="space-y-6">
