@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Printer } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { format } from "date-fns"
-import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
+import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
 
 export function PrintResults({ segmentId }: { segmentId: string }) {
   const printRef = useRef<HTMLDivElement>(null)
@@ -46,6 +46,8 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
         let totalScore = 0
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          // Round the total score
+          totalScore = roundToTwoDecimals(totalScore)
         }
         judgeScores[contestant.id] = totalScore
       })
@@ -116,11 +118,13 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
                   }
                 })
 
-                const avgRank = rankCount > 0 ? totalRank / rankCount : 0
+                const avgRank = rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
 
                 return (
                   <tr key={contestant.id} className="print-row">
-                    <td className="print-cell text-center">{rankings[contestant.id]?.rank || "-"}</td>
+                    <td className="print-cell text-center">
+                      {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
+                    </td>
                     <td className="print-cell">
                       {contestant.name}
                       {contestant.gender && <span className="ml-2 text-xs">({contestant.gender})</span>}
@@ -131,11 +135,13 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
                       let score = 0
                       if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
                         score = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, s) => sum + s, 0)
+                        // Round the score
+                        score = roundToTwoDecimals(score)
                       }
 
                       return (
                         <td key={`score-${judge.id}`} className="print-cell text-center">
-                          {score || "-"}
+                          {score > 0 ? score.toFixed(2) : "-"}
                         </td>
                       )
                     })}
@@ -146,7 +152,7 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
 
                       return (
                         <td key={`rank-${judge.id}`} className="print-cell text-center">
-                          {rank}
+                          {typeof rank === "number" ? rank.toFixed(2) : rank}
                         </td>
                       )
                     })}
@@ -155,7 +161,9 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
                     <td className="print-cell text-center">{avgRank > 0 ? avgRank.toFixed(2) : "-"}</td>
 
                     {/* Final rank */}
-                    <td className="print-cell text-center font-bold">{rankings[contestant.id]?.rank || "-"}</td>
+                    <td className="print-cell text-center font-bold">
+                      {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
+                    </td>
                   </tr>
                 )
               })

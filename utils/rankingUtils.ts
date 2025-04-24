@@ -1,11 +1,17 @@
 // utils/ranking-utils.ts
 
+// Make sure the roundToTwoDecimals function is exported at the top of the file
+export function roundToTwoDecimals(value: number): number {
+  return Number(value.toFixed(2))
+}
+
 import type { Contestant } from "./useCompetitionStore"
 
 // Helper function to calculate average score
 export function calculateAverageScore(scores: number[]): number {
   if (scores.length === 0) return 0
-  return scores.reduce((sum, score) => sum + score, 0) / scores.length
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length
+  return roundToTwoDecimals(average)
 }
 
 // Helper function to calculate median score
@@ -15,11 +21,14 @@ export function calculateMedianScore(scores: number[]): number {
   const sortedScores = [...scores].sort((a, b) => a - b)
   const middle = Math.floor(sortedScores.length / 2)
 
+  let median
   if (sortedScores.length % 2 === 0) {
-    return (sortedScores[middle - 1] + sortedScores[middle]) / 2
+    median = (sortedScores[middle - 1] + sortedScores[middle]) / 2
   } else {
-    return sortedScores[middle]
+    median = sortedScores[middle]
   }
+
+  return roundToTwoDecimals(median)
 }
 
 // Helper function to calculate trimmed mean - FIXED
@@ -61,7 +70,8 @@ export function convertScoresToRanks(scoresMap: Record<string, number>): Record<
   const scoreGroups: Record<number, string[]> = {}
 
   pairs.forEach(([id, score]) => {
-    const scoreKey = Number(score)
+    // Round the score to 2 decimal places for grouping to avoid floating-point comparison issues
+    const scoreKey = roundToTwoDecimals(Number(score))
     if (!scoreGroups[scoreKey]) {
       scoreGroups[scoreKey] = []
     }
@@ -82,7 +92,7 @@ export function convertScoresToRanks(scoresMap: Record<string, number>): Record<
 
     // Calculate the average rank for this group
     // If there are 2 contestants tied at position 1, they both get (1+2)/2 = 1.5
-    const averageRank = currentPosition + (tieCount - 1) / 2
+    const averageRank = roundToTwoDecimals(currentPosition + (tieCount - 1) / 2)
 
     // Assign the same average rank to all tied contestants
     tiedContestants.forEach((id) => {
@@ -127,7 +137,9 @@ export function calculateSegmentScores(
     judges.forEach((judge) => {
       if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
         const criterionScores = Object.values(scores[segmentId][contestant.id][judge.id])
-        allScores.push(...criterionScores)
+        // Round each individual score to 2 decimal places
+        const roundedScores = criterionScores.map((score) => roundToTwoDecimals(score))
+        allScores.push(...roundedScores)
       }
     })
 
@@ -154,8 +166,8 @@ export function calculateSegmentScores(
           try {
             const avg_score = calculateAverageScore(allScores)
             const median_score = calculateMedianScore(allScores)
-            const min_score = Math.min(...allScores)
-            const max_score = Math.max(...allScores)
+            const min_score = roundToTwoDecimals(Math.min(...allScores))
+            const max_score = roundToTwoDecimals(Math.max(...allScores))
             const judge_count = judges.length
 
             // eslint-disable-next-line no-new-func
@@ -168,7 +180,8 @@ export function calculateSegmentScores(
               `return ${rankingConfig.customFormula}`,
             )
 
-            rawScores[contestant.id] = formula(avg_score, median_score, min_score, max_score, judge_count)
+            const result = formula(avg_score, median_score, min_score, max_score, judge_count)
+            rawScores[contestant.id] = roundToTwoDecimals(result)
           } catch (error) {
             console.error("Error evaluating custom formula:", error)
             rawScores[contestant.id] = calculateAverageScore(allScores)
@@ -200,10 +213,11 @@ export function calculateSegmentScores(
       segmentContestants.forEach((contestant) => {
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           // Sum all criterion scores for this judge
-          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+          const totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
             (sum, score) => sum + score,
             0,
           )
+          judgeScores[contestant.id] = roundToTwoDecimals(totalScore)
         }
       })
 
@@ -244,10 +258,11 @@ export function calculateSegmentScores(
       segmentContestants.forEach((contestant) => {
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           // Sum all criterion scores for this judge
-          judgeScores[contestant.id] = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+          const totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
             (sum, score) => sum + score,
             0,
           )
+          judgeScores[contestant.id] = roundToTwoDecimals(totalScore)
         }
       })
 
@@ -258,6 +273,11 @@ export function calculateSegmentScores(
       Object.entries(ranks).forEach(([contestantId, rank]) => {
         bordaScores[contestantId] += contestantCount - rank + 1
       })
+    })
+
+    // Round all Borda scores
+    Object.keys(bordaScores).forEach((id) => {
+      bordaScores[id] = roundToTwoDecimals(bordaScores[id])
     })
 
     finalScores = bordaScores
@@ -292,7 +312,7 @@ export function calculateSegmentScores(
   // Assign ranks based on the sorted order
   sortedContestants.forEach((contestant, index) => {
     result[contestant.id] = {
-      score: finalScores[contestant.id] || 0,
+      score: roundToTwoDecimals(finalScores[contestant.id] || 0),
       rank: index + 1,
     }
   })
@@ -316,7 +336,7 @@ function applyTiebreaker(
 
   Object.entries(finalScores).forEach(([contestantId, score]) => {
     // Convert to string with fixed precision to handle floating point comparison issues
-    const scoreKey = Number.parseFloat(score.toFixed(6))
+    const scoreKey = roundToTwoDecimals(score)
 
     if (!scoreGroups[scoreKey]) {
       scoreGroups[scoreKey] = []
@@ -345,7 +365,7 @@ function applyTiebreaker(
             })
           }
 
-          highestScores[contestantId] = maxScore
+          highestScores[contestantId] = roundToTwoDecimals(maxScore)
         })
 
         // Sort by highest score and adjust final scores slightly to break tie
@@ -356,11 +376,13 @@ function applyTiebreaker(
             if (rankingConfig.method === "rank-avg-rank" || rankingConfig.method === "avg-rank") {
               // For rank-based methods, adding makes the rank worse (higher)
               // So we add more to worse contestants
-              finalScores[contestantId] += index * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(finalScores[contestantId] + index * 0.0001)
             } else {
               // For score-based methods, adding makes the score better
               // So we add more to better contestants (reverse order)
-              finalScores[contestantId] += (contestantIds.length - 1 - index) * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(
+                finalScores[contestantId] + (contestantIds.length - 1 - index) * 0.0001,
+              )
             }
           })
         break
@@ -385,13 +407,11 @@ function applyTiebreaker(
               Object.keys(scores[segmentId][contestantA]).forEach((judgeId) => {
                 if (scores[segmentId][contestantB][judgeId]) {
                   // Calculate total scores for each contestant from this judge
-                  const scoreA = Object.values(scores[segmentId][contestantA][judgeId]).reduce(
-                    (sum, score) => sum + score,
-                    0,
+                  const scoreA = roundToTwoDecimals(
+                    Object.values(scores[segmentId][contestantA][judgeId]).reduce((sum, score) => sum + score, 0),
                   )
-                  const scoreB = Object.values(scores[segmentId][contestantB][judgeId]).reduce(
-                    (sum, score) => sum + score,
-                    0,
+                  const scoreB = roundToTwoDecimals(
+                    Object.values(scores[segmentId][contestantB][judgeId]).reduce((sum, score) => sum + score, 0),
                   )
 
                   if (scoreA > scoreB) aWins++
@@ -412,10 +432,12 @@ function applyTiebreaker(
             // For rank-based methods, we need to adjust differently
             if (rankingConfig.method === "rank-avg-rank" || rankingConfig.method === "avg-rank") {
               // For rank-based methods, adding makes the rank worse (higher)
-              finalScores[contestantId] += index * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(finalScores[contestantId] + index * 0.0001)
             } else {
               // For score-based methods, adding makes the score better
-              finalScores[contestantId] += (contestantIds.length - 1 - index) * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(
+                finalScores[contestantId] + (contestantIds.length - 1 - index) * 0.0001,
+              )
             }
           })
         break
@@ -439,7 +461,7 @@ function applyTiebreaker(
               })
             }
 
-            criterionScores[contestantId] = count > 0 ? totalCriterionScore / count : 0
+            criterionScores[contestantId] = count > 0 ? roundToTwoDecimals(totalCriterionScore / count) : 0
           })
 
           // Sort by criterion score and adjust final scores
@@ -447,18 +469,22 @@ function applyTiebreaker(
             .sort((a, b) => criterionScores[b] - criterionScores[a])
             .forEach((contestantId, index) => {
               if (rankingConfig.method === "rank-avg-rank" || rankingConfig.method === "avg-rank") {
-                finalScores[contestantId] += index * 0.0001
+                finalScores[contestantId] = roundToTwoDecimals(finalScores[contestantId] + index * 0.0001)
               } else {
-                finalScores[contestantId] += (contestantIds.length - 1 - index) * 0.0001
+                finalScores[contestantId] = roundToTwoDecimals(
+                  finalScores[contestantId] + (contestantIds.length - 1 - index) * 0.0001,
+                )
               }
             })
         } else {
           // Fallback if no criterion specified
           contestantIds.forEach((contestantId, index) => {
             if (rankingConfig.method === "rank-avg-rank" || rankingConfig.method === "avg-rank") {
-              finalScores[contestantId] += index * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(finalScores[contestantId] + index * 0.0001)
             } else {
-              finalScores[contestantId] += (contestantIds.length - 1 - index) * 0.0001
+              finalScores[contestantId] = roundToTwoDecimals(
+                finalScores[contestantId] + (contestantIds.length - 1 - index) * 0.0001,
+              )
             }
           })
         }
@@ -504,7 +530,8 @@ export const calculateRankings = (
     const judgeScores: number[] = []
     judges.forEach((judge) => {
       if (scores[judge.id]?.[contestant.id] !== undefined) {
-        judgeScores.push(scores[judge.id][contestant.id])
+        // Round each score to 2 decimal places
+        judgeScores.push(roundToTwoDecimals(scores[judge.id][contestant.id]))
       }
     })
 
@@ -531,8 +558,8 @@ export const calculateRankings = (
             try {
               const avg_score = calculateAverageScore(judgeScores)
               const median_score = calculateMedianScore(judgeScores)
-              const min_score = Math.min(...(judgeScores.length ? judgeScores : [0]))
-              const max_score = Math.max(...(judgeScores.length ? judgeScores : [0]))
+              const min_score = roundToTwoDecimals(Math.min(...(judgeScores.length ? judgeScores : [0])))
+              const max_score = roundToTwoDecimals(Math.max(...(judgeScores.length ? judgeScores : [0])))
               const judge_count = judgeScores.length
 
               // eslint-disable-next-line no-new-func
@@ -545,7 +572,8 @@ export const calculateRankings = (
                 `return ${rankingConfig.customFormula}`,
               )
 
-              calculatedScore = formula(avg_score, median_score, min_score, max_score, judge_count)
+              const result = formula(avg_score, median_score, min_score, max_score, judge_count)
+              calculatedScore = roundToTwoDecimals(result)
             } catch (error) {
               console.error("Error evaluating custom formula:", error)
               calculatedScore = calculateAverageScore(judgeScores)
@@ -560,7 +588,7 @@ export const calculateRankings = (
       }
     } else {
       // Default to average if no method specified (for backward compatibility)
-      calculatedScore = judgeScores.length > 0 ? total / judgeScores.length : 0
+      calculatedScore = judgeScores.length > 0 ? roundToTwoDecimals(total / judgeScores.length) : 0
     }
 
     // Add to the appropriate group
@@ -568,7 +596,7 @@ export const calculateRankings = (
     if (groupedScores[key]) {
       groupedScores[key].push({
         ...contestant,
-        total,
+        total: roundToTwoDecimals(total),
         avg: calculatedScore,
         rank: 0, // Will be set after sorting
       })
@@ -588,7 +616,11 @@ export const calculateRankings = (
       let currentTiedGroup: Array<(typeof group)[0]> = [group[0]]
 
       for (let i = 1; i < group.length; i++) {
-        if (Math.abs(group[i].avg - group[i - 1].avg) < 0.0001) {
+        // Use rounded values for comparison to avoid floating-point issues
+        const currentScore = roundToTwoDecimals(group[i].avg)
+        const previousScore = roundToTwoDecimals(group[i - 1].avg)
+
+        if (currentScore === previousScore) {
           currentTiedGroup.push(group[i])
         } else {
           if (currentTiedGroup.length > 1) {
@@ -611,7 +643,7 @@ export const calculateRankings = (
               const judgeScores: number[] = []
               judges.forEach((judge) => {
                 if (scores[judge.id]?.[contestant.id] !== undefined) {
-                  judgeScores.push(scores[judge.id][contestant.id])
+                  judgeScores.push(roundToTwoDecimals(scores[judge.id][contestant.id]))
                 }
               })
 
@@ -621,7 +653,7 @@ export const calculateRankings = (
             // Sort by highest score and adjust avg slightly to break tie
             tiedGroup.sort((a, b) => (b.highestScore || 0) - (a.highestScore || 0))
             tiedGroup.forEach((contestant, index) => {
-              contestant.avg += index * 0.0001
+              contestant.avg = roundToTwoDecimals(contestant.avg + index * 0.0001)
             })
             break
 
@@ -642,8 +674,8 @@ export const calculateRankings = (
 
                 // Compare scores from each judge
                 judges.forEach((judge) => {
-                  const scoreA = scores[judge.id]?.[contestantA.id] || 0
-                  const scoreB = scores[judge.id]?.[contestantB.id] || 0
+                  const scoreA = roundToTwoDecimals(scores[judge.id]?.[contestantA.id] || 0)
+                  const scoreB = roundToTwoDecimals(scores[judge.id]?.[contestantB.id] || 0)
 
                   if (scoreA > scoreB) aWins++
                   if (scoreB > scoreA) bWins++
@@ -657,7 +689,7 @@ export const calculateRankings = (
             // Sort by win count and adjust avg slightly to break tie
             tiedGroup.sort((a, b) => winCounts[b.id] - winCounts[a.id])
             tiedGroup.forEach((contestant, index) => {
-              contestant.avg += index * 0.0001
+              contestant.avg = roundToTwoDecimals(contestant.avg + index * 0.0001)
             })
             break
 
@@ -665,7 +697,7 @@ export const calculateRankings = (
             // This would require access to scores by criterion, which isn't in your current data model
             // For now, we'll just use a placeholder implementation
             tiedGroup.forEach((contestant, index) => {
-              contestant.avg += index * 0.0001
+              contestant.avg = roundToTwoDecimals(contestant.avg + index * 0.0001)
             })
             break
 
@@ -692,7 +724,7 @@ export const calculateRankings = (
 
     group.forEach((contestant) => {
       // Use fixed precision to handle floating point comparison
-      const scoreKey = Number(contestant.avg.toFixed(6))
+      const scoreKey = roundToTwoDecimals(contestant.avg)
       if (!scoreGroups[scoreKey]) {
         scoreGroups[scoreKey] = []
       }
@@ -712,7 +744,7 @@ export const calculateRankings = (
       const tieCount = tiedContestants.length
 
       // Calculate the average rank for this group
-      const averageRank = currentPosition + (tieCount - 1) / 2
+      const averageRank = roundToTwoDecimals(currentPosition + (tieCount - 1) / 2)
 
       // Assign the same average rank to all tied contestants
       tiedContestants.forEach((contestant) => {

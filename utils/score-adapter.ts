@@ -37,8 +37,11 @@ export function dbToStoreScores(
       storeScores[segment_id][contestant_id][judge_id] = {}
     }
 
+    // Round the score to exactly 2 decimal places when loading from database
+    const roundedScore = Number(scoreValue.toFixed(2))
+
     // Set the score for the specific criterion
-    storeScores[segment_id][contestant_id][judge_id][criterion_id] = scoreValue
+    storeScores[segment_id][contestant_id][judge_id][criterion_id] = roundedScore
   })
 
   return storeScores
@@ -57,15 +60,21 @@ export function storeToDbScores(
     Object.entries(segmentScores).forEach(([contestantId, judgeScores]) => {
       // Iterate through judges
       Object.entries(judgeScores).forEach(([judgeId, criterionScores]) => {
+        // Skip admin scores
+        if (judgeId === "admin") return
+
         // Iterate through criteria
         Object.entries(criterionScores).forEach(([criterionId, score]) => {
+          // Ensure score is rounded to exactly 2 decimal places
+          const roundedScore = Number(score.toFixed(2))
+
           dbScores.push({
             competitionId,
             segmentId,
             criteriaId: criterionId, // Changed from criterionId to criteriaId to match API expectation
             contestantId,
             judgeId,
-            score,
+            score: roundedScore,
           })
         })
       })

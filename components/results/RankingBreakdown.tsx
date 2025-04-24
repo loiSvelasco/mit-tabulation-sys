@@ -3,7 +3,7 @@
 import type React from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
+import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info } from "lucide-react"
 
@@ -64,6 +64,8 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
         let totalScore = 0
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          // Round the total score
+          totalScore = roundToTwoDecimals(totalScore)
         }
         judgeScores[contestant.id] = totalScore
       })
@@ -135,7 +137,7 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
                     }
                   })
 
-                  const avgRank = rankCount > 0 ? totalRank / rankCount : 0
+                  const avgRank = rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
                   const isEven = index % 2 === 0
 
                   return (
@@ -150,11 +152,13 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
                             (sum, s) => sum + s,
                             0,
                           )
+                          // Round the score
+                          score = roundToTwoDecimals(score)
                         }
 
                         return (
                           <TableCell key={`score-${judge.id}`} className="text-center align-middle">
-                            {score || "-"}
+                            {score > 0 ? score.toFixed(2) : "-"}
                           </TableCell>
                         )
                       })}
@@ -165,7 +169,7 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
 
                         return (
                           <TableCell key={`rank-${judge.id}`} className="text-center align-middle">
-                            {rank}
+                            {typeof rank === "number" ? rank.toFixed(2) : rank}
                           </TableCell>
                         )
                       })}
@@ -177,7 +181,7 @@ const RankingBreakdown: React.FC<Props> = ({ segmentId }) => {
 
                       {/* Final rank */}
                       <TableCell className="text-center font-bold align-middle bg-primary/5">
-                        {rankings[contestant.id]?.rank || "-"}
+                        {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
                       </TableCell>
                     </TableRow>
                   )

@@ -6,7 +6,7 @@ import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { calculateSegmentScores, convertScoresToRanks } from "@/utils/rankingUtils"
+import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
 import { PrintResults } from "../print-results"
 
 interface Props {
@@ -53,6 +53,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         let totalScore = 0
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
           totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          // Round the total score
+          totalScore = roundToTwoDecimals(totalScore)
         }
         judgeScores[contestant.id] = totalScore
       })
@@ -129,7 +131,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                     }
                   })
 
-                  const avgRank = rankCount > 0 ? totalRank / rankCount : 0
+                  const avgRank = rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
                   const isAdvancing = segment && index < (segment.advancingCandidates || 0)
                   const isEven = index % 2 === 0
                   const rowClass = isAdvancing ? "bg-green-50" : isEven ? "bg-muted/20" : ""
@@ -161,11 +163,13 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                               (sum, s) => sum + s,
                               0,
                             )
+                            // Round the score
+                            score = roundToTwoDecimals(score)
                           }
 
                           return (
                             <TableCell key={`score-${judge.id}`} className="text-center align-middle">
-                              {score || "-"}
+                              {score > 0 ? score.toFixed(2) : "-"}
                             </TableCell>
                           )
                         })}
@@ -176,7 +180,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
                           return (
                             <TableCell key={`rank-${judge.id}`} className="text-center align-middle">
-                              {rank}
+                              {typeof rank === "number" ? rank.toFixed(2) : rank}
                             </TableCell>
                           )
                         })}
@@ -188,7 +192,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
                         {/* Final rank */}
                         <TableCell className="text-center font-bold align-middle bg-primary/5">
-                          {rankings[contestant.id]?.rank || "-"}
+                          {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
                         </TableCell>
 
                         {/* Status */}
@@ -233,8 +237,10 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                       }
                                     })
 
+                                    // Round the total and average
+                                    totalCriterionScore = roundToTwoDecimals(totalCriterionScore)
                                     const avgCriterionScore =
-                                      criterionCount > 0 ? totalCriterionScore / criterionCount : 0
+                                      criterionCount > 0 ? roundToTwoDecimals(totalCriterionScore / criterionCount) : 0
 
                                     return (
                                       <TableRow key={criterion.id} className="divide-x divide-border">
@@ -252,9 +258,11 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
                                           return (
                                             <TableCell key={judge.id} className="text-center">
-                                              {criterionScore}
+                                              {criterionScore > 0
+                                                ? roundToTwoDecimals(criterionScore).toFixed(2)
+                                                : "0.00"}
                                               <span className="text-xs text-muted-foreground ml-1">
-                                                ({percentage.toFixed(0)}%)
+                                                ({roundToTwoDecimals(percentage).toFixed(0)}%)
                                               </span>
                                             </TableCell>
                                           )
@@ -279,11 +287,13 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                           (sum, score) => sum + score,
                                           0,
                                         )
+                                        // Round the total
+                                        total = roundToTwoDecimals(total)
                                       }
 
                                       return (
                                         <TableCell key={judge.id} className="text-center font-medium">
-                                          {total}
+                                          {total > 0 ? total.toFixed(2) : "0.00"}
                                         </TableCell>
                                       )
                                     })}
@@ -303,7 +313,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                           }
                                         })
 
-                                        return totalScore.toFixed(2)
+                                        // Round the total score
+                                        return roundToTwoDecimals(totalScore).toFixed(2)
                                       })()}
                                     </TableCell>
 
@@ -326,7 +337,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                           }
                                         })
 
-                                        return count > 0 ? (totalScore / count).toFixed(2) : "-"
+                                        // Round the average
+                                        return count > 0 ? roundToTwoDecimals(totalScore / count).toFixed(2) : "-"
                                       })()}
                                     </TableCell>
                                   </TableRow>
@@ -357,7 +369,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                         }
                                       })
 
-                                      return count > 0 ? (totalScore / count).toFixed(2) : "-"
+                                      // Round the average
+                                      return count > 0 ? roundToTwoDecimals(totalScore / count).toFixed(2) : "-"
                                     })()}
                                   </p>
                                 )}
@@ -380,7 +393,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                         }
                                       })
 
-                                      return count > 0 ? (totalScore / count).toFixed(2) : "-"
+                                      // Round the average
+                                      return count > 0 ? roundToTwoDecimals(totalScore / count).toFixed(2) : "-"
                                     })()}) then ranked against other contestants.
                                   </p>
                                 )}
@@ -389,11 +403,17 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                     <p>
                                       1. Scores converted to ranks per judge:{" "}
                                       {judges
-                                        .map((judge) => judgeRankings[judge.id]?.[contestant.id] || "-")
+                                        .map((judge) => {
+                                          const rank = judgeRankings[judge.id]?.[contestant.id]
+                                          return typeof rank === "number" ? rank.toFixed(2) : "-"
+                                        })
                                         .join(", ")}
                                     </p>
                                     <p>2. Average of ranks: {avgRank.toFixed(2)}</p>
-                                    <p>3. Final rank based on average rank: {rankings[contestant.id]?.rank || "-"}</p>
+                                    <p>
+                                      3. Final rank based on average rank:{" "}
+                                      {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
+                                    </p>
                                   </div>
                                 )}
                                 {competitionSettings.ranking.method === "weighted" && (
@@ -413,7 +433,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                               }
                                             })
 
-                                            return count > 0 ? (total / count).toFixed(2) : "0"
+                                            // Round the average
+                                            return count > 0 ? roundToTwoDecimals(total / count).toFixed(2) : "0.00"
                                           })()} = {(() => {
                                             let total = 0
                                             let count = 0
@@ -426,7 +447,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                             })
 
                                             const avg = count > 0 ? total / count : 0
-                                            return (avg * (criterion.weight || 1)).toFixed(2)
+                                            // Round the weighted score
+                                            return roundToTwoDecimals(avg * (criterion.weight || 1)).toFixed(2)
                                           })()}
                                         </li>
                                       ))}
@@ -444,14 +466,14 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                       {judges
                                         .map((judge) => {
                                           if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-                                            return Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
-                                              (sum, score) => sum + score,
-                                              0,
-                                            )
+                                            const total = Object.values(
+                                              scores[segmentId][contestant.id][judge.id],
+                                            ).reduce((sum, score) => sum + score, 0)
+                                            return roundToTwoDecimals(total).toFixed(2)
                                           }
-                                          return 0
+                                          return "0.00"
                                         })
-                                        .filter((score) => score > 0)
+                                        .filter((score) => score !== "0.00")
                                         .join(", ")}
                                     </p>
                                     <p>After trimming: {rankings[contestant.id]?.score?.toFixed(2) || "-"}</p>

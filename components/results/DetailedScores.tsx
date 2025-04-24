@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { convertScoresToRanks } from "@/utils/rankingUtils"
+import { convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
 
 interface Props {
   segmentId: string
@@ -48,10 +48,14 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
       judges.forEach((judge) => {
         // Calculate total score from this judge for this contestant
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-          total += Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          const judgeTotal = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+            (sum, score) => sum + score,
+            0,
+          )
+          total += roundToTwoDecimals(judgeTotal)
         }
       })
-      contestantTotals[contestant.id] = total
+      contestantTotals[contestant.id] = roundToTwoDecimals(total)
     })
 
     const ranks = convertScoresToRanks(contestantTotals)
@@ -96,6 +100,7 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                           (sum, score) => sum + score,
                           0,
                         )
+                        judgeTotal = roundToTwoDecimals(judgeTotal)
                         if (judgeTotal > 0) {
                           total += judgeTotal
                           count++
@@ -103,8 +108,11 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                       }
                     })
 
-                    const average = count > 0 ? total / count : 0
-                    const percentage = totalMaxScore > 0 ? (total / (totalMaxScore * judges.length)) * 100 : 0
+                    // Round the total
+                    total = roundToTwoDecimals(total)
+                    const average = count > 0 ? roundToTwoDecimals(total / count) : 0
+                    const percentage =
+                      totalMaxScore > 0 ? roundToTwoDecimals((total / (totalMaxScore * judges.length)) * 100) : 0
                     const rank = ranks[contestant.id] || "-"
                     const isEven = index % 2 === 0
                     const isExpanded = expandedRows[contestant.id] || false
@@ -124,7 +132,9 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                               <ChevronRight className="h-4 w-4 inline-block" />
                             )}
                           </TableCell>
-                          <TableCell className="text-center align-middle">{rank}</TableCell>
+                          <TableCell className="text-center align-middle">
+                            {typeof rank === "number" ? rank.toFixed(2) : rank}
+                          </TableCell>
                           <TableCell className="text-center align-middle">{contestant.name}</TableCell>
                           {judges.map((judge) => {
                             let judgeTotal = 0
@@ -133,22 +143,23 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                 (sum, score) => sum + score,
                                 0,
                               )
+                              judgeTotal = roundToTwoDecimals(judgeTotal)
                             }
 
                             return (
                               <TableCell key={judge.id} className="text-center align-middle">
-                                {judgeTotal || 0}
+                                {judgeTotal > 0 ? judgeTotal.toFixed(2) : "0.00"}
                                 {totalMaxScore > 0 && (
                                   <span className="text-xs text-muted-foreground ml-1">
-                                    ({Math.round(((judgeTotal || 0) / totalMaxScore) * 100)}%)
+                                    ({roundToTwoDecimals(((judgeTotal || 0) / totalMaxScore) * 100).toFixed(0)}%)
                                   </span>
                                 )}
                               </TableCell>
                             )
                           })}
-                          <TableCell className="text-center align-middle font-medium">{total.toFixed(1)}</TableCell>
+                          <TableCell className="text-center align-middle font-medium">{total.toFixed(2)}</TableCell>
                           <TableCell className="text-center align-middle">{average.toFixed(2)}</TableCell>
-                          <TableCell className="text-center align-middle">{percentage.toFixed(1)}%</TableCell>
+                          <TableCell className="text-center align-middle">{percentage.toFixed(2)}%</TableCell>
                         </TableRow>
 
                         {/* Expanded row with detailed criteria scores */}
@@ -181,14 +192,20 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
 
                                       judges.forEach((judge) => {
                                         if (scores[segmentId]?.[contestant.id]?.[judge.id]?.[criterion.id]) {
-                                          totalCriterionScore +=
-                                            scores[segmentId][contestant.id][judge.id][criterion.id]
+                                          const score = roundToTwoDecimals(
+                                            scores[segmentId][contestant.id][judge.id][criterion.id],
+                                          )
+                                          totalCriterionScore += score
                                           criterionCount++
                                         }
                                       })
 
+                                      // Round the total
+                                      totalCriterionScore = roundToTwoDecimals(totalCriterionScore)
                                       const avgCriterionScore =
-                                        criterionCount > 0 ? totalCriterionScore / criterionCount : 0
+                                        criterionCount > 0
+                                          ? roundToTwoDecimals(totalCriterionScore / criterionCount)
+                                          : 0
 
                                       return (
                                         <TableRow key={criterion.id} className="divide-x divide-border">
@@ -202,11 +219,13 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                             const criterionScore =
                                               scores[segmentId]?.[contestant.id]?.[judge.id]?.[criterion.id] || 0
                                             const percentage =
-                                              criterion.maxScore > 0 ? (criterionScore / criterion.maxScore) * 100 : 0
+                                              criterion.maxScore > 0
+                                                ? roundToTwoDecimals((criterionScore / criterion.maxScore) * 100)
+                                                : 0
 
                                             return (
                                               <TableCell key={judge.id} className="text-center">
-                                                {criterionScore}
+                                                {criterionScore > 0 ? criterionScore.toFixed(2) : "0.00"}
                                                 <span className="text-xs text-muted-foreground ml-1">
                                                   ({percentage.toFixed(0)}%)
                                                 </span>
@@ -214,7 +233,7 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                             )
                                           })}
                                           <TableCell className="text-center font-medium">
-                                            {totalCriterionScore.toFixed(1)}
+                                            {totalCriterionScore.toFixed(2)}
                                           </TableCell>
                                           <TableCell className="text-center font-medium">
                                             {avgCriterionScore.toFixed(2)}
@@ -233,11 +252,12 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                             (sum, score) => sum + score,
                                             0,
                                           )
+                                          total = roundToTwoDecimals(total)
                                         }
 
                                         return (
                                           <TableCell key={judge.id} className="text-center font-medium">
-                                            {total}
+                                            {total > 0 ? total.toFixed(2) : "0.00"}
                                           </TableCell>
                                         )
                                       })}
@@ -254,12 +274,12 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                               ).reduce((sum, score) => sum + score, 0)
 
                                               if (judgeTotal > 0) {
-                                                totalScore += judgeTotal
+                                                totalScore += roundToTwoDecimals(judgeTotal)
                                               }
                                             }
                                           })
 
-                                          return totalScore.toFixed(1)
+                                          return roundToTwoDecimals(totalScore).toFixed(2)
                                         })()}
                                       </TableCell>
 
@@ -276,13 +296,13 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
                                               ).reduce((sum, score) => sum + score, 0)
 
                                               if (judgeTotal > 0) {
-                                                totalScore += judgeTotal
+                                                totalScore += roundToTwoDecimals(judgeTotal)
                                                 count++
                                               }
                                             }
                                           })
 
-                                          return count > 0 ? (totalScore / count).toFixed(2) : "-"
+                                          return count > 0 ? roundToTwoDecimals(totalScore / count).toFixed(2) : "-"
                                         })()}
                                       </TableCell>
                                     </TableRow>

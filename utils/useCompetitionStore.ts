@@ -477,6 +477,9 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
   // MODIFIED: Update setScores to save to database with better error handling and proper decimal rounding
   // Also skip saving scores for "admin" to avoid cluttering the database
   setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => {
+    // Round the score to exactly 2 decimal places
+    const roundedScore = Number(score.toFixed(2))
+
     // Skip saving scores for "admin" - we only want to save scores for actual judges
     if (judgeId === "admin") {
       // Still update the local state for UI purposes, but don't save to database
@@ -499,17 +502,14 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
           newScores[segmentId][contestantId][judgeId] = {}
         }
 
-        // Set the score for the specific criterion
-        newScores[segmentId][contestantId][judgeId][criterionId] = Number(score.toFixed(2))
+        // Set the score for the specific criterion with exactly 2 decimal places
+        newScores[segmentId][contestantId][judgeId][criterionId] = roundedScore
 
         return { scores: newScores }
       })
 
       return // Don't proceed to database saving
     }
-
-    // Round the score to 2 decimal places to avoid floating-point precision issues
-    const roundedScore = Number(score.toFixed(2))
 
     // Update the store immediately for UI feedback
     set((state) => {
@@ -531,7 +531,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
         newScores[segmentId][contestantId][judgeId] = {}
       }
 
-      // Set the score for the specific criterion
+      // Set the score for the specific criterion with exactly 2 decimal places
       newScores[segmentId][contestantId][judgeId][criterionId] = roundedScore
 
       return { scores: newScores }

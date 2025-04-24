@@ -13,6 +13,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
+// Add this function at the top of your component file, outside the component
+function roundToTwoDecimals(value: number): number {
+  return Number(value.toFixed(2))
+}
+
 export function PrejudgedScoresInput() {
   const { competitionSettings, contestants, judges, scores, setScores, saveCompetition, setCompetitionSettings } =
     useCompetitionStore()
@@ -125,6 +130,9 @@ export function PrejudgedScoresInput() {
       const maxRaw = maxRawScores[criterion.id] || 100
       const scaledValue = (numValue * criterion.maxScore) / maxRaw
 
+      // Ensure exactly 2 decimal places
+      const roundedScaledValue = Number(scaledValue.toFixed(2))
+
       setScaledScores((prev) => {
         const updated = { ...prev }
 
@@ -132,8 +140,8 @@ export function PrejudgedScoresInput() {
           updated[contestantId] = {}
         }
 
-        // Round to 2 decimal places when storing in state
-        updated[contestantId][criterionId] = Number(scaledValue.toFixed(2))
+        // Store with exactly 2 decimal places
+        updated[contestantId][criterionId] = roundedScaledValue
         return updated
       })
     }
@@ -166,7 +174,7 @@ export function PrejudgedScoresInput() {
           const rawValue = rawScores[contestantId]?.[criterionId] || 0
           const scaledValue = (rawValue * criterion.maxScore) / numValue
 
-          // Round to 2 decimal places when storing in state
+          // Ensure exactly 2 decimal places
           updated[contestantId][criterionId] = Number(scaledValue.toFixed(2))
         })
 
@@ -231,8 +239,11 @@ export function PrejudgedScoresInput() {
       judges.forEach((judge) => {
         Object.entries(scaledScores).forEach(([contestantId, criteriaScores]) => {
           Object.entries(criteriaScores).forEach(([criterionId, score]) => {
+            // Ensure exactly 2 decimal places before saving
+            const roundedScore = Number(score.toFixed(2))
+
             // Save the score for this judge - setScores will handle rounding
-            setScores(selectedSegmentId, contestantId, judge.id, criterionId, score)
+            setScores(selectedSegmentId, contestantId, judge.id, criterionId, roundedScore)
 
             // Add a small delay between requests
             const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -274,14 +285,18 @@ export function PrejudgedScoresInput() {
   // Get contestants in the selected segment
   const segmentContestants = contestants.filter((c) => c.currentSegmentId === selectedSegmentId)
 
-  // Helper function to format display values
+  // Then in your component, modify the formatDisplayValue function:
   const formatDisplayValue = (value: number) => {
+    // First round to exactly 2 decimal places
+    const roundedValue = roundToTwoDecimals(value)
+
     // For whole numbers, don't show decimal places
-    if (Math.floor(value) === value) {
-      return value.toString()
+    if (Math.floor(roundedValue) === roundedValue) {
+      return roundedValue.toString()
     }
+
     // For numbers with decimal places, show up to 2 decimal places
-    return value.toFixed(2).replace(/\.?0+$/, "")
+    return roundedValue.toFixed(2).replace(/\.?0+$/, "")
   }
 
   return (
