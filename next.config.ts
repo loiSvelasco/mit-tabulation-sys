@@ -13,10 +13,10 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: [
-      "public.blob.vercel-storage.com",
-      // Add any other domains you need
-    ],
+    // domains: [
+    //   "public.blob.vercel-storage.com",
+    //   // Add any other domains you need
+    // ],
     remotePatterns: [
       {
         protocol: "https",

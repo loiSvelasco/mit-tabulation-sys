@@ -1,6 +1,24 @@
+// Define types for better type safety
+interface DbScore {
+  segment_id: string
+  contestant_id: string
+  judge_id: string
+  criterion_id: string
+  score: number
+}
+
+interface ApiScore {
+  competitionId: number
+  segmentId: string
+  criteriaId: string // Changed from criterionId to criteriaId
+  contestantId: string
+  judgeId: string
+  score: number
+}
+
 // Convert from database format to store format
 export function dbToStoreScores(
-  dbScores: any[],
+  dbScores: DbScore[],
 ): Record<string, Record<string, Record<string, Record<string, number>>>> {
   const storeScores: Record<string, Record<string, Record<string, Record<string, number>>>> = {}
 
@@ -30,22 +48,8 @@ export function dbToStoreScores(
 export function storeToDbScores(
   storeScores: Record<string, Record<string, Record<string, Record<string, number>>>>,
   competitionId: number,
-): {
-  competitionId: number
-  segmentId: string
-  criterionId: string
-  contestantId: string
-  judgeId: string
-  score: number
-}[] {
-  const dbScores: {
-    competitionId: number
-    segmentId: string
-    criterionId: string
-    contestantId: string
-    judgeId: string
-    score: number
-  }[] = []
+): ApiScore[] {
+  const dbScores: ApiScore[] = []
 
   // Iterate through segments
   Object.entries(storeScores).forEach(([segmentId, segmentScores]) => {
@@ -58,7 +62,7 @@ export function storeToDbScores(
           dbScores.push({
             competitionId,
             segmentId,
-            criterionId,
+            criteriaId: criterionId, // Changed from criterionId to criteriaId to match API expectation
             contestantId,
             judgeId,
             score,

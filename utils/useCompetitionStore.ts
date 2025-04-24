@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import type { CompetitionSettings as CompetitionSettingsType, Contestant as ContestantType, Criterion } from "./types"
 import { dbToStoreScores, storeToDbScores } from "./score-adapter"
 
 const generateAccessCode = () => {
@@ -8,31 +9,6 @@ const generateAccessCode = () => {
     result += characters.charAt(Math.floor(Math.random() * characters.length))
   }
   return result
-}
-
-interface Criterion {
-  id: string
-  name: string
-  description: string
-  maxScore: number
-}
-
-interface Segment {
-  id: string
-  name: string
-  advancingCandidates: number
-  criteria: Criterion[]
-}
-
-// Update the Contestant interface to allow null for imageUrl
-// Find the Contestant interface and update the imageUrl property to be nullable
-
-interface Contestant {
-  id: string
-  name: string
-  gender: "Male" | "Female"
-  currentSegmentId: string
-  imageUrl: string | null
 }
 
 interface Judge {
@@ -70,7 +46,25 @@ export interface ActiveCriterion {
   criterionId: string
 }
 
-interface CompetitionSettings {
+interface Segment {
+  id: string
+  name: string
+  advancingCandidates: number
+  criteria: Criterion[]
+}
+
+// Update the Contestant interface to allow null for imageUrl
+// Find the Contestant interface and update the imageUrl property to be nullable
+
+interface Contestant extends ContestantType {
+  id: string
+  name: string
+  gender: "Male" | "Female"
+  currentSegmentId: string
+  imageUrl: string | null
+}
+
+interface CompetitionSettings extends CompetitionSettingsType {
   name: string
   separateRankingByGender: boolean
   segments: Segment[]
@@ -141,6 +135,63 @@ interface CompetitionState {
   toggleActiveCriterion: (segmentId: string, criterionId: string) => void
   isActiveCriterion: (segmentId: string, criterionId: string) => boolean
   clearActiveCriteria: () => void
+}
+
+// Function to apply pre-judged scores to all judges
+const applyPrejudgedScores = (
+  segmentId: string,
+  contestants: Contestant[],
+  criteria: Criterion[],
+  scores: Record<string, Record<string, Record<string, Record<string, number>>>>,
+  judges: any[], // Assuming judges is an array of judge objects
+) => {
+  // Get pre-judged criteria for this segment
+  const prejudgedCriteria = criteria.filter((c) => c.isPrejudged && c.prejudgedBy)
+
+  if (prejudgedCriteria.length === 0) return scores
+
+  // Get contestants in this segment
+  const segmentContestants = contestants.filter((c) => c.currentSegmentId === segmentId)
+
+  // Create a copy of the scores object
+  const updatedScores = { ...scores }
+
+  // Initialize segment if it doesn't exist
+  if (!updatedScores[segmentId]) {
+    updatedScores[segmentId] = {}
+  }
+
+  // For each contestant and pre-judged criterion, copy the admin's score to all judges
+  segmentContestants.forEach((contestant) => {
+    // Initialize contestant if needed
+    if (!updatedScores[segmentId][contestant.id]) {
+      updatedScores[segmentId][contestant.id] = {}
+    }
+
+    prejudgedCriteria.forEach((criterion) => {
+      const adminId = criterion.prejudgedBy
+
+      if (!adminId) return
+
+      // Get the admin's score for this criterion
+      const adminScore = updatedScores[segmentId]?.[contestant.id]?.[adminId]?.[criterion.id]
+
+      if (adminScore === undefined) return
+
+      // Apply this score to all judges
+      judges.forEach((judge) => {
+        // Initialize judge if needed
+        if (!updatedScores[segmentId][contestant.id][judge.id]) {
+          updatedScores[segmentId][contestant.id][judge.id] = {}
+        }
+
+        // Set the judge's score to match the admin's score
+        updatedScores[segmentId][contestant.id][judge.id][criterion.id] = adminScore
+      })
+    })
+  })
+
+  return updatedScores
 }
 
 // Add these to your store implementation
@@ -423,8 +474,43 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       ),
     })),
 
-  // MODIFIED: Update setScores to save to database and track criterion-specific scores
+  // MODIFIED: Update setScores to save to database with better error handling and proper decimal rounding
+  // Also skip saving scores for "admin" to avoid cluttering the database
   setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => {
+    // Skip saving scores for "admin" - we only want to save scores for actual judges
+    if (judgeId === "admin") {
+      // Still update the local state for UI purposes, but don't save to database
+      set((state) => {
+        // Create a deep copy of the current scores to avoid mutation issues
+        const newScores = { ...state.scores }
+
+        // Initialize segment scores object if it doesn't exist
+        if (!newScores[segmentId]) {
+          newScores[segmentId] = {}
+        }
+
+        // Initialize contestant scores object if it doesn't exist
+        if (!newScores[segmentId][contestantId]) {
+          newScores[segmentId][contestantId] = {}
+        }
+
+        // Initialize judge scores object if it doesn't exist
+        if (!newScores[segmentId][contestantId][judgeId]) {
+          newScores[segmentId][contestantId][judgeId] = {}
+        }
+
+        // Set the score for the specific criterion
+        newScores[segmentId][contestantId][judgeId][criterionId] = Number(score.toFixed(2))
+
+        return { scores: newScores }
+      })
+
+      return // Don't proceed to database saving
+    }
+
+    // Round the score to 2 decimal places to avoid floating-point precision issues
+    const roundedScore = Number(score.toFixed(2))
+
     // Update the store immediately for UI feedback
     set((state) => {
       // Create a deep copy of the current scores to avoid mutation issues
@@ -446,7 +532,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       }
 
       // Set the score for the specific criterion
-      newScores[segmentId][contestantId][judgeId][criterionId] = score
+      newScores[segmentId][contestantId][judgeId][criterionId] = roundedScore
 
       return { scores: newScores }
     })
@@ -461,22 +547,38 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       const criterion = segment?.criteria.find((c) => c.id === criterionId)
 
       if (segment && criterion) {
+        const scoreData = {
+          competitionId,
+          segmentId,
+          criteriaId: criterionId, // Changed from criterionId to criteriaId to match API expectation
+          contestantId,
+          judgeId,
+          score: roundedScore, // Use the rounded score here too
+        }
+
+        console.log("Saving score to database:", scoreData)
+
         fetch("/api/scores", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            competitionId,
-            segmentId,
-            criterionId,
-            contestantId,
-            judgeId,
-            score,
-          }),
-        }).catch((error) => {
-          console.error("Error saving score to database:", error)
+          body: JSON.stringify(scoreData),
         })
+          .then((response) => {
+            if (!response.ok) {
+              return response.json().then((data) => {
+                throw new Error(`Failed to save score: ${data.error || response.statusText}`)
+              })
+            }
+            return response.json()
+          })
+          .then((data) => {
+            console.log("Score saved successfully:", data)
+          })
+          .catch((error) => {
+            console.error("Error saving score to database:", error)
+          })
       }
     }
   },
