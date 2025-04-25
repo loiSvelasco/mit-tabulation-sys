@@ -3,20 +3,26 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 
-export function usePolling(competitionId: number | null | undefined, interval = 5000) {
-  const [isPolling, setIsPolling] = useState(false)
+export function usePolling(competitionId: number | null | undefined, interval = 2000) {
+  const [isPolling, setIsPolling] = useState(true) // Start polling by default
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const { loadCompetition } = useCompetitionStore()
   const mountedRef = useRef(true) // Track if component is mounted
+  const isRefreshingRef = useRef(false) // Track if a refresh is in progress
 
   // Function to fetch data
   const fetchData = useCallback(async () => {
-    if (!competitionId) {
-      setError("No competition ID provided")
+    if (!competitionId || isRefreshingRef.current) {
+      if (!competitionId) {
+        setError("No competition ID provided")
+      }
       return
     }
+
+    // Set refreshing flag to prevent overlapping requests
+    isRefreshingRef.current = true
 
     try {
       console.log(`Polling: Fetching data for competition ID: ${competitionId}`)
@@ -34,6 +40,9 @@ export function usePolling(competitionId: number | null | undefined, interval = 
       if (mountedRef.current) {
         setError(`Failed to fetch data: ${err instanceof Error ? err.message : String(err)}`)
       }
+    } finally {
+      // Clear refreshing flag when done
+      isRefreshingRef.current = false
     }
   }, [competitionId, loadCompetition])
 
@@ -69,9 +78,10 @@ export function usePolling(competitionId: number | null | undefined, interval = 
   }, [])
 
   // Manually trigger a refresh
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     console.log("Polling: Manual refresh requested")
-    return fetchData()
+    await fetchData()
+    return true // Return a value to indicate completion
   }, [fetchData])
 
   // Start/stop polling based on competitionId changes

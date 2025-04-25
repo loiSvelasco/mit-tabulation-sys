@@ -74,7 +74,10 @@ export default function JudgeTerminal() {
     refresh,
     startPolling,
     stopPolling,
-  } = usePolling(competitionId, 2000) // Poll every 10 seconds
+  } = usePolling(competitionId, 2000) // Poll every 2 seconds
+
+  // Add a ref to track previous active criteria for comparison
+  const previousActiveCriteriaRef = useRef<string>("")
 
   const { loadCompetition, competitionSettings, contestants, judges, scores, setScores, activeCriteria } =
     useCompetitionStore()
@@ -171,19 +174,21 @@ export default function JudgeTerminal() {
 
           setFinalizationStatus(statusMap)
 
-          // Check if any active segments are already finalized
-          const anyFinalized = competitionSettings.segments.some((segment) => statusMap[segment.id])
+          // Check if ALL ACTIVE segments are finalized (not just any segment)
+          // This is the key fix - only consider active segments
+          const allActiveSegmentsFinalized =
+            activeSegmentIds.length > 0 && activeSegmentIds.every((segmentId) => statusMap[segmentId] === true)
 
           // Store the previous finalized state before updating
           const wasFinalized = isFinalized
           previousFinalizedStateRef.current = wasFinalized
 
-          // Update finalization state
-          setIsFinalized(anyFinalized)
+          // Update finalization state based on active segments only
+          setIsFinalized(allActiveSegmentsFinalized)
           setFinalizationChecked(true)
 
           // If finalization status has changed from finalized to not finalized
-          if (wasFinalized && !anyFinalized && !isInitializing) {
+          if (wasFinalized && !allActiveSegmentsFinalized && !isInitializing) {
             console.log("Finalization status changed: Now allowed to edit scores")
             toast.success("You can now edit your scores again")
 
@@ -194,12 +199,12 @@ export default function JudgeTerminal() {
             updateUIState("scoring")
           }
           // If finalization status has changed from not finalized to finalized
-          else if (!wasFinalized && anyFinalized && !isInitializing) {
+          else if (!wasFinalized && allActiveSegmentsFinalized && !isInitializing) {
             console.log("Finalization status changed: Now finalized")
             updateUIState("finalized")
           }
 
-          return anyFinalized
+          return allActiveSegmentsFinalized
         }
 
         return isFinalized // Return current state if request fails
@@ -208,7 +213,7 @@ export default function JudgeTerminal() {
         return isFinalized // Return current state if request fails
       }
     },
-    [isFinalized, refresh, competitionSettings.segments, updateUIState, isInitializing],
+    [isFinalized, refresh, updateUIState, isInitializing],
   )
 
   // Completely revamped initialization function to prevent flashing
@@ -338,6 +343,117 @@ export default function JudgeTerminal() {
     competitionSettings,
     updateUIState,
   ])
+
+  // Reset finalization state when active criteria change
+  useEffect(() => {
+    if (!isInitializing && judgeInfo && competitionId) {
+      // When active criteria change, we need to re-check finalization status
+      checkFinalizationStatus(competitionId, judgeInfo.id)
+    }
+  }, [activeCriteria, judgeInfo, competitionId, checkFinalizationStatus, isInitializing])
+
+  // Add this effect to handle segment changes and contestant selection
+  useEffect(() => {
+    if (!isInitializing && activeSegmentIds.length > 0) {
+      // Get the current selected contestant
+      const currentContestant = contestants.find((c) => c.id === selectedContestantId)
+
+      // Check if the current contestant is in an active segment
+      const isContestantInActiveSegment =
+        currentContestant && activeSegmentIds.includes(currentContestant.currentSegmentId)
+
+      // If no contestant is selected or the selected contestant is not in an active segment
+      if (!selectedContestantId || !isContestantInActiveSegment) {
+        // Find the first contestant in the active segments
+        const firstActiveContestant = contestants.find((c) => activeSegmentIds.includes(c.currentSegmentId))
+
+        if (firstActiveContestant) {
+          console.log("Automatically selecting first contestant:", firstActiveContestant.name)
+          setSelectedContestantId(firstActiveContestant.id)
+        }
+      }
+    }
+  }, [contestants, selectedContestantId, isInitializing])
+
+  // Add this effect to detect changes in active criteria and reset contestant selection when segments change
+  useEffect(() => {
+    if (!isInitializing && judgeInfo) {
+      // Create a string representation of current active criteria for comparison
+      const activeCriteriaString = JSON.stringify(
+        activeCriteria.map((ac) => `${ac.segmentId}-${ac.criterionId}`).sort(),
+      )
+
+      // Get the current active segments
+      const currentActiveSegmentIds = [...new Set(activeCriteria.map((ac) => ac.segmentId))]
+
+      // Get the previous active segments from the stored criteria string
+      let previousActiveSegmentIds: string[] = []
+      if (previousActiveCriteriaRef.current) {
+        try {
+          const previousCriteria = JSON.parse(previousActiveCriteriaRef.current)
+          // Extract segment IDs from the criteria strings (format: "segmentId-criterionId")
+          previousActiveSegmentIds = [...new Set(previousCriteria.map((ac: string) => ac.split("-")[0]))]
+        } catch (e) {
+          console.error("Error parsing previous active criteria:", e)
+        }
+      }
+
+      // Check if segments have changed
+      const segmentsChanged =
+        currentActiveSegmentIds.length !== previousActiveSegmentIds.length ||
+        currentActiveSegmentIds.some((id) => !previousActiveSegmentIds.includes(id))
+
+      // Compare with previous active criteria
+      if (previousActiveCriteriaRef.current && previousActiveCriteriaRef.current !== activeCriteriaString) {
+        console.log("Active criteria changed, refreshing UI...")
+
+        // Reset selected contestant if segments changed
+        if (segmentsChanged) {
+          console.log("Segments changed, resetting selected contestant")
+          setSelectedContestantId(null)
+        }
+
+        // Reset UI state based on finalization status
+        if (competitionId) {
+          checkFinalizationStatus(competitionId, judgeInfo.id).then((isFinalized) => {
+            if (!isFinalized) {
+              // If not finalized, update UI to scoring mode
+              updateUIState("scoring")
+
+              // Show notification to the judge
+              // toast.success("New criteria are now available for judging!", {
+              //   duration: 3000,
+              // })
+            }
+          })
+        }
+      }
+
+      // Update the ref with current active criteria
+      previousActiveCriteriaRef.current = activeCriteriaString
+    }
+  }, [activeCriteria, isInitializing, judgeInfo, competitionId, checkFinalizationStatus, updateUIState])
+
+  // Modify the refresh function to also update active criteria
+  const handleRefresh = async () => {
+    // First do the regular refresh
+    await refresh()
+
+    // Then check if we need to update the UI state
+    if (judgeInfo && competitionId) {
+      const isFinalized = await checkFinalizationStatus(competitionId, judgeInfo.id)
+
+      // If not finalized and we have active criteria, make sure we're in scoring mode
+      if (!isFinalized && activeCriteria.length > 0 && uiState !== "scoring") {
+        updateUIState("scoring")
+
+        // Set initial contestant if none selected
+        if (!selectedContestantId && activeContestants.length > 0) {
+          setSelectedContestantId(activeContestants[0].id)
+        }
+      }
+    }
+  }
 
   // Setup initialization and session check
   useEffect(() => {
@@ -899,7 +1015,13 @@ export default function JudgeTerminal() {
                 >
                   {isPolling ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 </Button>
-                <Button variant="ghost" size="icon" className="ml-1 h-6 w-6" onClick={refresh} title="Refresh now">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-1 h-6 w-6"
+                  onClick={handleRefresh}
+                  title="Refresh now"
+                >
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
