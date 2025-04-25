@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { PrejudgedScoresInput } from "@/components/prejudged/PrejudgedScoresInput"
+import { CarryForwardConfig } from "@/components/CarryForwardConfig"
 
 const CompetitionSettings = () => {
   const { competitionSettings, setCompetitionSettings, addSegment, removeSegment, addCriterion, removeCriterion } =
@@ -26,7 +27,8 @@ const CompetitionSettings = () => {
     description: "",
     maxScore: 10,
     segmentId: "",
-    isPrejudged: false, // Add isPrejudged property
+    isPrejudged: false,
+    isCarryForward: false, // Add isCarryForward property
   })
 
   const handleCompetitionNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,14 +58,16 @@ const CompetitionSettings = () => {
       name: criteriaInput.name,
       description: criteriaInput.description,
       maxScore: criteriaInput.maxScore,
-      isPrejudged: criteriaInput.isPrejudged, // Include isPrejudged property
+      isPrejudged: criteriaInput.isPrejudged,
+      isCarryForward: criteriaInput.isCarryForward, // Include isCarryForward property
     })
     setCriteriaInput({
       ...criteriaInput,
       name: "",
       description: "",
       maxScore: 10,
-      isPrejudged: false, // Reset isPrejudged
+      isPrejudged: false,
+      isCarryForward: false, // Reset isCarryForward
     })
   }
 
@@ -182,9 +186,21 @@ const CompetitionSettings = () => {
                       <Checkbox
                         id={`isPrejudged-${segment.id}`}
                         checked={criteriaInput.isPrejudged}
-                        onCheckedChange={(checked) =>
-                          setCriteriaInput({ ...criteriaInput, isPrejudged: checked === true })
-                        }
+                        onCheckedChange={(checked) => {
+                          // If this is a pre-judged criterion, it can't be carry-forward
+                          if (checked === true) {
+                            setCriteriaInput({
+                              ...criteriaInput,
+                              isPrejudged: true,
+                              isCarryForward: false,
+                            })
+                          } else {
+                            setCriteriaInput({
+                              ...criteriaInput,
+                              isPrejudged: false,
+                            })
+                          }
+                        }}
                       />
                       <label htmlFor={`isPrejudged-${segment.id}`} className="text-sm font-medium">
                         This is a pre-judged criterion
@@ -199,6 +215,46 @@ const CompetitionSettings = () => {
                             <p className="max-w-xs">
                               Pre-judged criteria are scored by administrators before the live event. These scores will
                               be automatically applied to all judges.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+
+                    {/* Add Carry-Forward Checkbox */}
+                    <div className="flex items-center gap-2 ml-1 mb-2">
+                      <Checkbox
+                        id={`isCarryForward-${segment.id}`}
+                        checked={criteriaInput.isCarryForward}
+                        onCheckedChange={(checked) => {
+                          // If this is a carry-forward criterion, it can't be prejudged
+                          if (checked === true) {
+                            setCriteriaInput({
+                              ...criteriaInput,
+                              isCarryForward: true,
+                              isPrejudged: false,
+                            })
+                          } else {
+                            setCriteriaInput({
+                              ...criteriaInput,
+                              isCarryForward: false,
+                            })
+                          }
+                        }}
+                      />
+                      <label htmlFor={`isCarryForward-${segment.id}`} className="text-sm font-medium">
+                        This is a carry-forward criterion
+                      </label>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              Carry-forward criteria automatically include scores from previous segments. You'll need to
+                              configure the source segments after creating this criterion.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -229,6 +285,10 @@ const CompetitionSettings = () => {
                                 <Badge variant="outline" className="bg-blue-50 text-blue-700">
                                   Pre-judged
                                 </Badge>
+                              ) : criterion.isCarryForward ? (
+                                <Badge variant="outline" className="bg-green-50 text-green-700">
+                                  Carry-Forward
+                                </Badge>
                               ) : (
                                 <Badge variant="outline">Live</Badge>
                               )}
@@ -256,6 +316,9 @@ const CompetitionSettings = () => {
 
       {/* Pre-judged Scores Input Component */}
       <PrejudgedScoresInput />
+
+      {/* Carry-Forward Scores Configuration */}
+      <CarryForwardConfig />
     </div>
   )
 }

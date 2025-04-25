@@ -20,7 +20,6 @@ import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { usePolling } from "@/hooks/usePolling"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
-import { PrintResults } from "@/components/print-results"
 
 export function Results() {
   const {
@@ -31,12 +30,14 @@ export function Results() {
     judges,
     setScores,
     selectedCompetitionId,
+    saveCompetition, // Make sure to include this in the destructuring
   } = useCompetitionStore()
   const { segments } = competitionSettings
   const [selectedSegmentId, setSelectedSegmentId] = React.useState<string>(segments[0]?.id || "no-segments")
   const [activeContentTab, setActiveContentTab] = React.useState<string>("overview")
   const [showTestScoring, setShowTestScoring] = React.useState(false)
   const [activeTab, setActiveTab] = useState("final-rankings")
+  const [isSaving, setIsSaving] = useState(false) // Add state for saving indicator
 
   // Add a debug panel to help troubleshoot score issues
   const [showDebug, setShowDebug] = React.useState(false)
@@ -70,8 +71,8 @@ export function Results() {
     }
   }
 
-  // Add this function to the Results component
-  const handleAdvanceToNextSegment = () => {
+  // Modified handleAdvanceToNextSegment function
+  const handleAdvanceToNextSegment = async () => {
     if (!nextSegment) {
       toast.error("This is the last segment. Cannot advance further.")
       return
@@ -82,198 +83,230 @@ export function Results() {
       return
     }
 
-    // Get the number of contestants that should advance
-    const advancingCount = currentSegment.advancingCandidates || 0
+    // Temporarily stop polling to prevent conflicts
+    stopPolling()
+    setIsSaving(true)
 
-    if (advancingCount <= 0) {
-      toast.error(`Please set the number of advancing candidates for ${currentSegment.name} segment.`)
-      return
+    try {
+      // Get the number of contestants that should advance
+      const advancingCount = currentSegment.advancingCandidates || 0
+
+      if (advancingCount <= 0) {
+        toast.error(`Please set the number of advancing candidates for ${currentSegment.name} segment.`)
+        setIsSaving(false)
+        startPolling()
+        return
+      }
+
+      // Check if gender separation is enabled
+      const separateByGender = competitionSettings.separateRankingByGender
+
+      if (separateByGender) {
+        // Handle advancing contestants separately by gender
+        const maleContestants = currentContestants.filter((c) => c.gender?.toLowerCase() === "male")
+        const femaleContestants = currentContestants.filter((c) => c.gender?.toLowerCase() === "female")
+
+        // Log for debugging
+        console.log("Results - Advancing with gender separation")
+        console.log("Male contestants:", maleContestants.length)
+        console.log("Female contestants:", femaleContestants.length)
+
+        // Process male contestants
+        const sortedMaleContestants = [...maleContestants]
+        // Sort based on the ranking method
+        if (
+          competitionSettings.ranking.method === "rank-avg-rank" ||
+          competitionSettings.ranking.method === "avg-rank"
+        ) {
+          // Get rankings from the ranking utils for males
+          const maleRankings = calculateSegmentScores(
+            maleContestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Sort by rank (lower is better)
+          sortedMaleContestants.sort((a, b) => {
+            const rankA = maleRankings[a.id]?.rank || 999
+            const rankB = maleRankings[b.id]?.rank || 999
+            return rankA - rankB
+          })
+        } else {
+          // For score-based methods (higher is better)
+          const maleRankings = calculateSegmentScores(
+            maleContestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Sort by score (higher is better)
+          sortedMaleContestants.sort((a, b) => {
+            const scoreA = maleRankings[a.id]?.score || 0
+            const scoreB = maleRankings[b.id]?.score || 0
+            return scoreB - scoreA
+          })
+        }
+
+        // Process female contestants
+        const sortedFemaleContestants = [...femaleContestants]
+        // Sort based on the ranking method
+        if (
+          competitionSettings.ranking.method === "rank-avg-rank" ||
+          competitionSettings.ranking.method === "avg-rank"
+        ) {
+          // Get rankings from the ranking utils for females
+          const femaleRankings = calculateSegmentScores(
+            femaleContestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Sort by rank (lower is better)
+          sortedFemaleContestants.sort((a, b) => {
+            const rankA = femaleRankings[a.id]?.rank || 999
+            const rankB = femaleRankings[b.id]?.rank || 999
+            return rankA - rankB
+          })
+        } else {
+          // For score-based methods (higher is better)
+          const femaleRankings = calculateSegmentScores(
+            femaleContestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Sort by score (higher is better)
+          sortedFemaleContestants.sort((a, b) => {
+            const scoreA = femaleRankings[a.id]?.score || 0
+            const scoreB = femaleRankings[b.id]?.score || 0
+            return scoreB - scoreA
+          })
+        }
+
+        // Get the top contestants from each gender
+        const advancingMaleContestants = sortedMaleContestants.slice(0, advancingCount)
+        const advancingFemaleContestants = sortedFemaleContestants.slice(0, advancingCount)
+
+        // Combine the advancing contestants
+        const advancingContestants = [...advancingMaleContestants, ...advancingFemaleContestants]
+
+        // Log for debugging
+        console.log("Advancing male contestants:", advancingMaleContestants.length)
+        console.log("Advancing female contestants:", advancingFemaleContestants.length)
+        console.log("Total advancing contestants:", advancingContestants.length)
+
+        // Move advancing contestants to the next segment
+        advancingContestants.forEach((contestant) => {
+          // Update segment
+          updateContestantSegment(contestant.id, nextSegment.id)
+        })
+
+        // Save changes to the database
+        await saveCompetition()
+
+        toast.success(
+          `Advanced ${advancingMaleContestants.length} male and ${advancingFemaleContestants.length} female contestants to ${nextSegment.name}`,
+        )
+      } else {
+        // Original logic for when gender separation is not enabled
+        // Get contestants sorted by their ranking
+        const sortedContestants = [...currentContestants]
+
+        // Sort contestants based on the ranking method
+        // For rank-based methods (lower is better)
+        if (
+          competitionSettings.ranking.method === "rank-avg-rank" ||
+          competitionSettings.ranking.method === "avg-rank"
+        ) {
+          // Get rankings from the ranking utils
+          const rankings = calculateSegmentScores(
+            contestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Add debug logging
+          console.log("Results - Advancing contestants using rank-based method:", competitionSettings.ranking.method)
+          console.log("Rankings:", rankings)
+
+          // Sort by rank (lower is better)
+          sortedContestants.sort((a, b) => {
+            const rankA = rankings[a.id]?.rank || 999
+            const rankB = rankings[b.id]?.rank || 999
+
+            console.log(`Results - Comparing for advancement: ${a.name} (rank ${rankA}) vs ${b.name} (rank ${rankB})`)
+
+            return rankA - rankB
+          })
+        } else {
+          // For score-based methods (higher is better)
+          // Get rankings from the ranking utils
+          const rankings = calculateSegmentScores(
+            contestants,
+            judges,
+            scores,
+            selectedSegmentId,
+            competitionSettings.ranking,
+          )
+
+          // Add debug logging
+          console.log("Results - Advancing contestants using score-based method:", competitionSettings.ranking.method)
+          console.log("Rankings:", rankings)
+
+          // Sort by score (higher is better)
+          sortedContestants.sort((a, b) => {
+            const scoreA = rankings[a.id]?.score || 0
+            const scoreB = rankings[b.id]?.score || 0
+
+            console.log(
+              `Results - Comparing for advancement: ${a.name} (score ${scoreA}) vs ${b.name} (score ${scoreB})`,
+            )
+
+            return scoreB - scoreA
+          })
+        }
+
+        // Add debug logging for the final sorted list
+        console.log(
+          "Results - Sorted contestants for advancement:",
+          sortedContestants.map((c) => c.name),
+        )
+
+        // Get the top contestants based on advancingCount
+        const advancingContestants = sortedContestants.slice(0, advancingCount)
+
+        // Move advancing contestants to the next segment
+        advancingContestants.forEach((contestant) => {
+          // Update segment
+          updateContestantSegment(contestant.id, nextSegment.id)
+        })
+
+        // Save changes to the database
+        await saveCompetition()
+
+        toast.success(`Advanced ${advancingContestants.length} contestants to ${nextSegment.name}`)
+      }
+
+      // Switch to the next segment tab
+      setSelectedSegmentId(nextSegment.id)
+    } catch (error) {
+      console.error("Error advancing contestants:", error)
+      toast.error("Failed to advance contestants. Please try again.")
+    } finally {
+      setIsSaving(false)
+      // Resume polling after the operation is complete
+      startPolling()
     }
-
-    // Check if gender separation is enabled
-    const separateByGender = competitionSettings.separateRankingByGender
-
-    if (separateByGender) {
-      // Handle advancing contestants separately by gender
-      const maleContestants = currentContestants.filter((c) => c.gender?.toLowerCase() === "male")
-      const femaleContestants = currentContestants.filter((c) => c.gender?.toLowerCase() === "female")
-
-      // Log for debugging
-      console.log("Results - Advancing with gender separation")
-      console.log("Male contestants:", maleContestants.length)
-      console.log("Female contestants:", femaleContestants.length)
-
-      // Process male contestants
-      const sortedMaleContestants = [...maleContestants]
-      // Sort based on the ranking method
-      if (competitionSettings.ranking.method === "rank-avg-rank" || competitionSettings.ranking.method === "avg-rank") {
-        // Get rankings from the ranking utils for males
-        const maleRankings = calculateSegmentScores(
-          maleContestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Sort by rank (lower is better)
-        sortedMaleContestants.sort((a, b) => {
-          const rankA = maleRankings[a.id]?.rank || 999
-          const rankB = maleRankings[b.id]?.rank || 999
-          return rankA - rankB
-        })
-      } else {
-        // For score-based methods (higher is better)
-        const maleRankings = calculateSegmentScores(
-          maleContestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Sort by score (higher is better)
-        sortedMaleContestants.sort((a, b) => {
-          const scoreA = maleRankings[a.id]?.score || 0
-          const scoreB = maleRankings[b.id]?.score || 0
-          return scoreB - scoreA
-        })
-      }
-
-      // Process female contestants
-      const sortedFemaleContestants = [...femaleContestants]
-      // Sort based on the ranking method
-      if (competitionSettings.ranking.method === "rank-avg-rank" || competitionSettings.ranking.method === "avg-rank") {
-        // Get rankings from the ranking utils for females
-        const femaleRankings = calculateSegmentScores(
-          femaleContestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Sort by rank (lower is better)
-        sortedFemaleContestants.sort((a, b) => {
-          const rankA = femaleRankings[a.id]?.rank || 999
-          const rankB = femaleRankings[b.id]?.rank || 999
-          return rankA - rankB
-        })
-      } else {
-        // For score-based methods (higher is better)
-        const femaleRankings = calculateSegmentScores(
-          femaleContestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Sort by score (higher is better)
-        sortedFemaleContestants.sort((a, b) => {
-          const scoreA = femaleRankings[a.id]?.score || 0
-          const scoreB = femaleRankings[b.id]?.score || 0
-          return scoreB - scoreA
-        })
-      }
-
-      // Get the top contestants from each gender
-      const advancingMaleContestants = sortedMaleContestants.slice(0, advancingCount)
-      const advancingFemaleContestants = sortedFemaleContestants.slice(0, advancingCount)
-
-      // Combine the advancing contestants
-      const advancingContestants = [...advancingMaleContestants, ...advancingFemaleContestants]
-
-      // Log for debugging
-      console.log("Advancing male contestants:", advancingMaleContestants.length)
-      console.log("Advancing female contestants:", advancingFemaleContestants.length)
-      console.log("Total advancing contestants:", advancingContestants.length)
-
-      // Move advancing contestants to the next segment
-      advancingContestants.forEach((contestant) => {
-        // Update segment
-        updateContestantSegment(contestant.id, nextSegment.id)
-      })
-
-      toast.success(
-        `Advanced ${advancingMaleContestants.length} male and ${advancingFemaleContestants.length} female contestants to ${nextSegment.name}`,
-      )
-    } else {
-      // Original logic for when gender separation is not enabled
-      // Get contestants sorted by their ranking
-      const sortedContestants = [...currentContestants]
-
-      // Sort contestants based on the ranking method
-      // For rank-based methods (lower is better)
-      if (competitionSettings.ranking.method === "rank-avg-rank" || competitionSettings.ranking.method === "avg-rank") {
-        // Get rankings from the ranking utils
-        const rankings = calculateSegmentScores(
-          contestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Add debug logging
-        console.log("Results - Advancing contestants using rank-based method:", competitionSettings.ranking.method)
-        console.log("Rankings:", rankings)
-
-        // Sort by rank (lower is better)
-        sortedContestants.sort((a, b) => {
-          const rankA = rankings[a.id]?.rank || 999
-          const rankB = rankings[b.id]?.rank || 999
-
-          console.log(`Results - Comparing for advancement: ${a.name} (rank ${rankA}) vs ${b.name} (rank ${rankB})`)
-
-          return rankA - rankB
-        })
-      } else {
-        // For score-based methods (higher is better)
-        // Get rankings from the ranking utils
-        const rankings = calculateSegmentScores(
-          contestants,
-          judges,
-          scores,
-          selectedSegmentId,
-          competitionSettings.ranking,
-        )
-
-        // Add debug logging
-        console.log("Results - Advancing contestants using score-based method:", competitionSettings.ranking.method)
-        console.log("Rankings:", rankings)
-
-        // Sort by score (higher is better)
-        sortedContestants.sort((a, b) => {
-          const scoreA = rankings[a.id]?.score || 0
-          const scoreB = rankings[b.id]?.score || 0
-
-          console.log(`Results - Comparing for advancement: ${a.name} (score ${scoreA}) vs ${b.name} (score ${scoreB})`)
-
-          return scoreB - scoreA
-        })
-      }
-
-      // Add debug logging for the final sorted list
-      console.log(
-        "Results - Sorted contestants for advancement:",
-        sortedContestants.map((c) => c.name),
-      )
-
-      // Get the top contestants based on advancingCount
-      const advancingContestants = sortedContestants.slice(0, advancingCount)
-
-      // Move advancing contestants to the next segment
-      advancingContestants.forEach((contestant) => {
-        // Update segment
-        updateContestantSegment(contestant.id, nextSegment.id)
-      })
-
-      toast.success(`Advanced ${advancingContestants.length} contestants to ${nextSegment.name}`)
-    }
-
-    // Switch to the next segment tab
-    setSelectedSegmentId(nextSegment.id)
   }
 
   return (
@@ -436,8 +469,14 @@ export function Results() {
                 </p>
               </div>
               {/* <PrintResults key={currentSegment?.id} segmentId={currentSegment?.id} /> */}
-              <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment}>
-                Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
+              <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment || isSaving}>
+                {isSaving ? (
+                  <>Saving changes...</>
+                ) : (
+                  <>
+                    Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
