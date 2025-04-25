@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         const judgeUser = await verifyToken(token)
 
         if (judgeUser && judgeUser.role === "judge") {
-          console.log("Judge authenticated:", judgeUser)
+          // console.log("Judge authenticated:", judgeUser)
 
           // Check if this judge has access to this competition
           if (judgeUser.competitionId === competitionId) {

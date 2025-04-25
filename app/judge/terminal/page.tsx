@@ -74,7 +74,7 @@ export default function JudgeTerminal() {
     refresh,
     startPolling,
     stopPolling,
-  } = usePolling(competitionId, 10000) // Poll every 10 seconds
+  } = usePolling(competitionId, 2000) // Poll every 10 seconds
 
   const { loadCompetition, competitionSettings, contestants, judges, scores, setScores, activeCriteria } =
     useCompetitionStore()
@@ -522,10 +522,10 @@ export default function JudgeTerminal() {
       const contestantName = contestants.find((c) => c.id === contestantId)?.name || "contestant"
       const criterionName =
         activeCriteriaDetails.find((c) => c.criterionId === criterionId)?.criterion?.name || "criterion"
-      toast.success(`Score saved for ${contestantName}'s ${criterionName}`, {
-        duration: 1500,
-        position: "bottom-right",
-      })
+      // toast.success(`Score saved for ${contestantName}'s ${criterionName}`, {
+      //   duration: 1500,
+      //   position: "top-right",
+      // })
 
       // Trigger a refresh to make sure we have latest data
       refresh()
@@ -1042,12 +1042,14 @@ export default function JudgeTerminal() {
                   <CardContent className="pt-0">
                     {/* Contestant Image with Full Screen Viewer */}
                     {currentContestant.imageUrl ? (
-                      <div className="w-full h-[400px] mb-4">
-                        <ImageViewer
-                          src={currentContestant.imageUrl || "/placeholder.svg"}
-                          alt={currentContestant.name}
-                          className="w-full h-full"
-                        />
+                      <div className="w-full flex justify-center mb-4">
+                        <div className="max-h-[400px] max-w-full overflow-hidden rounded-md">
+                          <ImageViewer
+                            src={currentContestant.imageUrl || "/placeholder.svg"}
+                            alt={currentContestant.name}
+                            className="max-h-[400px] max-w-full object-contain"
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div className="w-full h-[400px] rounded-md border flex items-center justify-center bg-muted mb-4">

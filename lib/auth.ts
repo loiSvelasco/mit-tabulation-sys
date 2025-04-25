@@ -49,7 +49,7 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as TokenPayload
 
     // Add console log to debug
-    console.log("Decoded token:", decoded)
+    // console.log("Decoded token:", decoded)
 
     if (!decoded || !decoded.id) {
       return null

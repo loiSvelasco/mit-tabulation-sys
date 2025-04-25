@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Maximize2, X } from "lucide-react"
@@ -14,18 +13,26 @@ interface ImageViewerProps {
 
 export function ImageViewer({ src, alt, className = "" }: ImageViewerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   return (
     <>
       <div className={`relative group ${className}`}>
-        <div className="relative w-full h-full overflow-hidden rounded-md">
-          <Image
+        {/* Remove the fill property and use width/height with object-contain instead */}
+        <div className="relative w-full overflow-hidden rounded-md">
+          <img
             src={src || "/placeholder.svg"}
             alt={alt}
-            fill
-            style={{ objectFit: "cover" }}
-            sizes="(max-width: 768px) 100vw, 50vw"
+            className={`w-full h-auto max-h-[400px] object-contain ${
+              isLoaded ? "opacity-100" : "opacity-0"
+            } transition-opacity duration-300`}
+            onLoad={() => setIsLoaded(true)}
           />
+          {!isLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/20 min-h-[200px]">
+              <div className="animate-pulse h-8 w-8 rounded-full bg-muted"></div>
+            </div>
+          )}
         </div>
         <Button
           variant="secondary"
@@ -40,7 +47,7 @@ export function ImageViewer({ src, alt, className = "" }: ImageViewerProps) {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-black/90 border-none">
-          {/* Added DialogTitle for accessibility, but visually hidden */}
+          {/* Added DialogTitle for accessibility */}
           <DialogTitle className="sr-only">Full size image of {alt}</DialogTitle>
           <Button
             variant="ghost"
@@ -51,17 +58,8 @@ export function ImageViewer({ src, alt, className = "" }: ImageViewerProps) {
           >
             <X className="h-4 w-4" />
           </Button>
-          <div className="relative w-full h-[90vh] flex items-center justify-center">
-            <Image
-              src={src || "/placeholder.svg"}
-              alt={alt}
-              fill
-              style={{ objectFit: "contain" }}
-              sizes="90vw"
-              quality={90}
-              priority
-              className="p-4"
-            />
+          <div className="flex items-center justify-center p-4 h-[90vh]">
+            <img src={src || "/placeholder.svg"} alt={alt} className="max-w-full max-h-full object-contain" />
           </div>
         </DialogContent>
       </Dialog>

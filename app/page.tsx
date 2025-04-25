@@ -9,9 +9,12 @@ const page = () => {
       <Card className="w-full max-w-3xl p-6 text-center shadow-lg">
         <CardContent>
           <img src="tabulation_logo.svg" className="mx-auto h-auto w-32" alt="" />
-          <h1 className="text-3xl font-bold mb-4">Tabulation System</h1>
-          <p className="text-gray-600 mb-6">
+          <h3 className="text-2xl font-bold mb-4">rankx</h3>
+          <p className="text-gray-400 mb-6">
             A streamlined tabulation system for juried competitions. Manage competitions, score contestants, and generate results effortlessly.
+          </p>
+          <p className="text-gray-400 mb-6 text-1xl">
+          Made with 💖
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/auth">

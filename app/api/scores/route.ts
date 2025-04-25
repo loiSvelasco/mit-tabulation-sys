@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    console.log(`Fetching scores for competition ID: ${competitionId}`)
+    // console.log(`Fetching scores for competition ID: ${competitionId}`)
 
     const scores = await query(
       `SELECT segment_id, criterion_id, contestant_id, judge_id, score, updated_at
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     // Check if client has the latest version
     const ifNoneMatch = request.headers.get("If-None-Match")
     if (ifNoneMatch === etag) {
-      console.log(`Client already has latest scores for competition ${competitionId}`)
+      // console.log(`Client already has latest scores for competition ${competitionId}`)
       return new Response(null, { status: 304 }) // Not Modified
     }
 
