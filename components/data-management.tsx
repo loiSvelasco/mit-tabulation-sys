@@ -7,14 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { Download, Upload, Settings, Users, UserCheck, BarChart3, Save, FileJson } from "lucide-react"
+import { Download, Upload, Settings, Users, UserCheck, BarChart3, Save, FileJson, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function DataManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [importType, setImportType] = useState<string>("all")
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null)
 
   const {
     exportAllData,
@@ -27,6 +29,7 @@ export default function DataManagement() {
     importJudges,
     exportScores,
     importScores,
+    selectedCompetitionId,
   } = useCompetitionStore()
 
   const handleExport = async (type: string) => {
@@ -84,6 +87,7 @@ export default function DataManagement() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0])
+      setImportStatus(null) // Reset import status when file changes
     }
   }
 
@@ -94,25 +98,160 @@ export default function DataManagement() {
     }
 
     setIsImporting(true)
+    setImportStatus(null)
+
     try {
       const fileContent = await selectedFile.text()
+      let parsedData: any
 
-      switch (importType) {
-        case "all":
+      try {
+        parsedData = JSON.parse(fileContent)
+      } catch (e) {
+        throw new Error("Invalid JSON file format")
+      }
+
+      // For "all" imports, we need to handle both competition data and scores
+      if (importType === "all") {
+        // First, check if we have a selected competition
+        if (!selectedCompetitionId) {
+          throw new Error("No competition selected. Please create or select a competition first.")
+        }
+
+        // Update the competition data in the database
+        const response = await fetch("/api/competitions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            competitionData: {
+              competitionSettings: parsedData.competitionSettings,
+              contestants: parsedData.contestants,
+              judges: parsedData.judges,
+              activeCriteria: parsedData.activeCriteria || [],
+            },
+            name: parsedData.competitionSettings.name,
+            competitionId: selectedCompetitionId,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.message || "Failed to update competition data")
+        }
+
+        // Now handle the scores separately
+        if (parsedData.scores && Object.keys(parsedData.scores).length > 0) {
+          // First clear existing scores
+          await fetch(`/api/scores?competitionId=${selectedCompetitionId}`, {
+            method: "DELETE",
+          })
+
+          // Convert scores to the format expected by the API
+          const scoresArray = []
+          for (const segmentId in parsedData.scores) {
+            for (const contestantId in parsedData.scores[segmentId]) {
+              for (const judgeId in parsedData.scores[segmentId][contestantId]) {
+                for (const criterionId in parsedData.scores[segmentId][contestantId][judgeId]) {
+                  const score = parsedData.scores[segmentId][contestantId][judgeId][criterionId]
+                  scoresArray.push({
+                    competitionId: selectedCompetitionId,
+                    segmentId,
+                    criteriaId: criterionId,
+                    contestantId,
+                    judgeId,
+                    score: Number(score.toFixed(2)), // Ensure score is rounded to 2 decimal places
+                  })
+                }
+              }
+            }
+          }
+
+          // Insert scores in batches to avoid overwhelming the server
+          const BATCH_SIZE = 50
+          let successCount = 0
+          let failCount = 0
+
+          for (let i = 0; i < scoresArray.length; i += BATCH_SIZE) {
+            const batch = scoresArray.slice(i, i + BATCH_SIZE)
+
+            const promises = batch.map((scoreData) =>
+              fetch("/api/scores", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(scoreData),
+              })
+                .then((response) => {
+                  if (response.ok) {
+                    successCount++
+                    return true
+                  } else {
+                    failCount++
+                    return false
+                  }
+                })
+                .catch(() => {
+                  failCount++
+                  return false
+                }),
+            )
+
+            await Promise.all(promises)
+          }
+
+          // Update the store with the imported data
           importAllData(fileContent)
-          break
-        case "settings":
-          importCompetitionSettings(fileContent)
-          break
-        case "contestants":
-          importContestants(fileContent)
-          break
-        case "judges":
-          importJudges(fileContent)
-          break
-        case "scores":
-          await importScores(fileContent)
-          break
+
+          setImportStatus({
+            success: true,
+            message: `Import successful. Updated competition data and imported ${successCount} scores${failCount > 0 ? ` (${failCount} scores failed)` : ""}.`,
+          })
+        } else {
+          // No scores to import, just update the store
+          importAllData(fileContent)
+          setImportStatus({
+            success: true,
+            message: "Import successful. Updated competition data (no scores found in import file).",
+          })
+        }
+      } else {
+        // Handle other import types
+        switch (importType) {
+          case "settings":
+            importCompetitionSettings(fileContent)
+            break
+          case "contestants":
+            importContestants(fileContent)
+            break
+          case "judges":
+            importJudges(fileContent)
+            break
+          case "scores":
+            if (!selectedCompetitionId) {
+              throw new Error("No competition selected. Please create or select a competition first.")
+            }
+
+            // Clear existing scores
+            await fetch(`/api/scores?competitionId=${selectedCompetitionId}`, {
+              method: "DELETE",
+            })
+
+            // Import new scores
+            await importScores(fileContent)
+
+            setImportStatus({
+              success: true,
+              message: "Scores imported successfully.",
+            })
+            break
+        }
+
+        if (importType !== "scores") {
+          setImportStatus({
+            success: true,
+            message: `${dataOptions.find((o) => o.id === importType)?.name} imported successfully.`,
+          })
+        }
       }
 
       toast.success("Import successful.")
@@ -123,7 +262,12 @@ export default function DataManagement() {
       if (fileInput) fileInput.value = ""
     } catch (error) {
       console.error("Error importing data:", error)
-      toast.error("Import failed.")
+      toast.error(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+
+      setImportStatus({
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error occurred during import",
+      })
     } finally {
       setIsImporting(false)
     }
@@ -218,6 +362,22 @@ export default function DataManagement() {
           </div>
 
           <div className="space-y-4">
+            {!selectedCompetitionId && (
+              <Alert variant="warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No competition selected</AlertTitle>
+                <AlertDescription>Please create or select a competition before importing data.</AlertDescription>
+              </Alert>
+            )}
+
+            {importStatus && (
+              <Alert variant={importStatus.success ? "default" : "destructive"}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{importStatus.success ? "Import Successful" : "Import Failed"}</AlertTitle>
+                <AlertDescription>{importStatus.message}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex flex-col space-y-2">
               <label htmlFor="file-input" className="text-sm font-medium">
                 Select JSON file to import
@@ -232,7 +392,11 @@ export default function DataManagement() {
               {selectedFile && <p className="text-sm text-muted-foreground">Selected file: {selectedFile.name}</p>}
             </div>
 
-            <Button onClick={handleImport} disabled={!selectedFile || isImporting} className="w-full">
+            <Button
+              onClick={handleImport}
+              disabled={!selectedFile || isImporting || !selectedCompetitionId}
+              className="w-full"
+            >
               <Save className="mr-2 h-4 w-4" />
               {isImporting ? "Importing..." : `Import ${dataOptions.find((o) => o.id === importType)?.name}`}
             </Button>
@@ -242,4 +406,3 @@ export default function DataManagement() {
     </div>
   )
 }
-
