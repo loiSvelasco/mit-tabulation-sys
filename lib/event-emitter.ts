@@ -14,7 +14,7 @@ export const SCORES_DELETED = "scores-deleted"
 if (process.env.NODE_ENV === "development") {
   const originalEmit = globalEventEmitter.emit
   globalEventEmitter.emit = function (event, ...args) {
-    console.log(`[EventEmitter] Emitting event: ${event}`, args[0] || {})
+    // console.log(`[EventEmitter] Emitting event: ${event}`, args[0] || {})
     return originalEmit.apply(this, [event, ...args])
   }
 }

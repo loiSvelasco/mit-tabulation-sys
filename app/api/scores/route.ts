@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Emit event for server-side notifications (still useful for internal events)
-    console.log(`Emitting score update event for competition ${competitionId}`)
+    // console.log(`Emitting score update event for competition ${competitionId}`)
     globalEventEmitter.emit(SCORE_UPDATED, {
       competitionId,
       segmentId,
@@ -170,7 +170,7 @@ export async function DELETE(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }
 
-    console.log("Emitting score delete event:", scoreData)
+    // console.log("Emitting score delete event:", scoreData)
     globalEventEmitter.emit(SCORE_UPDATED, scoreData)
 
     return NextResponse.json({
