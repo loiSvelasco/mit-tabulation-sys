@@ -364,13 +364,19 @@ export default function JudgeTerminal() {
       const currentContestant = contestants.find((c) => c.id === selectedContestantId)
 
       // Check if the current contestant is in an active segment
-      const isContestantInActiveSegment =
-        currentContestant && activeSegmentIds.includes(currentContestant.currentSegmentId)
+      if (currentContestant && !activeCriteria.some((ac) => ac.segmentId === currentContestant.currentSegmentId)) {
+        setSelectedContestantId(null)
+      }
 
       // If no contestant is selected or the selected contestant is not in an active segment
-      if (!selectedContestantId || !isContestantInActiveSegment) {
+      if (
+        !selectedContestantId ||
+        (currentContestant && !activeCriteria.some((ac) => ac.segmentId === currentContestant.currentSegmentId))
+      ) {
         // Find the first contestant in the active segments
-        const firstActiveContestant = contestants.find((c) => activeSegmentIds.includes(c.currentSegmentId))
+        const firstActiveContestant = contestants.find((c) =>
+          activeCriteria.some((ac) => ac.segmentId === c.currentSegmentId),
+        )
 
         if (firstActiveContestant) {
           console.log("Automatically selecting first contestant:", firstActiveContestant.name)
@@ -378,7 +384,7 @@ export default function JudgeTerminal() {
         }
       }
     }
-  }, [contestants, selectedContestantId, isInitializing, activeSegmentIds])
+  }, [contestants, selectedContestantId, isInitializing, activeCriteria])
 
   // Add this effect to detect changes in active criteria and reset contestant selection when segments change
   useEffect(() => {
@@ -796,6 +802,7 @@ export default function JudgeTerminal() {
     relevantCriteria.forEach(({ segmentId, criterionId }) => {
       if (
         currentScores[segmentId]?.[currentContestant.id]?.[criterionId] !== undefined ||
+        scores[segmentId]?.[currentContestant.id]?.[judgeInfo.id]?.[criterionId] !== undefined ||
         scores[segmentId]?.[currentContestant.id]?.[judgeInfo.id]?.[criterionId] !== undefined
       ) {
         scoredCount++
@@ -1201,7 +1208,7 @@ export default function JudgeTerminal() {
                   <CardDescription>Score this contestant on all criteria below</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeCriteriaDetails
                       .filter(({ segmentId }) => segmentId === currentContestant.currentSegmentId)
                       .map(({ segmentId, criterionId, criterion }) => {
@@ -1235,28 +1242,29 @@ export default function JudgeTerminal() {
                               </div>
 
                               <div className="flex items-center justify-between mt-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">Score:</span>
+                                <div className="flex items-center gap-1">
                                   <span className="text-2xl font-bold">{score}</span>
                                   <span className="text-sm text-muted-foreground">/ {criterion.maxScore}</span>
                                 </div>
 
-                                <JudgeScoreDropdown
-                                  maxScore={criterion.maxScore}
-                                  increment={0.25}
-                                  value={score}
-                                  onChange={(value) =>
-                                    handleScoreChange(segmentId, currentContestant.id, criterionId, value)
-                                  }
-                                />
-                              </div>
+                                <div className="flex items-center gap-2">
+                                  {isSaving && (
+                                    <div className="text-amber-600 text-sm flex items-center gap-1">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      Saving...
+                                    </div>
+                                  )}
 
-                              {isSaving && (
-                                <div className="text-amber-600 text-sm flex items-center gap-1 mt-1">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  Saving...
+                                  <JudgeScoreDropdown
+                                    maxScore={criterion.maxScore}
+                                    increment={0.25}
+                                    value={score}
+                                    onChange={(value) =>
+                                      handleScoreChange(segmentId, currentContestant.id, criterionId, value)
+                                    }
+                                  />
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         )

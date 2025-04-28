@@ -24,7 +24,7 @@ export function JudgeScoreDropdown({ maxScore, increment = 0.25, value, onChange
       <SelectTrigger className="w-[120px]">
         <SelectValue placeholder="Select score" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" side="bottom" sideOffset={4} align="center">
         {descendingScoreOptions.map((score) => (
           <SelectItem key={score} value={score.toString()}>
             {score.toFixed(2)}
