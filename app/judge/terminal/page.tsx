@@ -97,8 +97,10 @@ export default function JudgeTerminal() {
     })
     .filter((item) => item.segment && item.criterion)
 
-  // Get contestants in the active segments
-  const activeContestants = contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId))
+  // Get contestants in the active segments and sort by displayOrder
+  const activeContestants = contestants
+    .filter((c) => activeSegmentIds.includes(c.currentSegmentId))
+    .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
 
   // Track scores for the current criteria
   const [currentScores, setCurrentScores] = useState<Record<string, Record<string, number>>>({})
@@ -106,7 +108,19 @@ export default function JudgeTerminal() {
 
   // Check if current contestant is the last one
   const isLastContestant = selectedContestantId
-    ? activeContestants.findIndex((c) => c.id === selectedContestantId) === activeContestants.length - 1
+    ? (() => {
+        const currentContestant = activeContestants.find((c) => c.id === selectedContestantId)
+        if (!currentContestant) return false
+
+        const currentDisplayOrder =
+          currentContestant.displayOrder || activeContestants.findIndex((c) => c.id === selectedContestantId) + 1
+
+        // Check if there are any contestants with a higher display order in the same segment
+        return !activeContestants.some((c) => {
+          const displayOrder = c.displayOrder || activeContestants.findIndex((contestant) => contestant.id === c.id) + 1
+          return displayOrder > currentDisplayOrder && c.currentSegmentId === currentContestant.currentSegmentId
+        })
+      })()
     : false
 
   // Update UI state based on current conditions - this is the key function that determines what to show
@@ -318,7 +332,21 @@ export default function JudgeTerminal() {
         finalState === "scoring" &&
         contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId)).length > 0
       ) {
-        setSelectedContestantId(contestants.filter((c) => activeSegmentIds.includes(c.currentSegmentId))[0].id)
+        // Get active contestants and sort by display order
+        const sortedContestants = contestants
+          .filter((c) => activeSegmentIds.includes(c.currentSegmentId))
+          .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
+
+        // Select the contestant with the lowest display order
+        if (sortedContestants.length > 0) {
+          setSelectedContestantId(sortedContestants[0].id)
+          console.log(
+            "Initially selected contestant:",
+            sortedContestants[0].name,
+            "with display order:",
+            sortedContestants[0].displayOrder || 1,
+          )
+        }
       }
 
       // Mark data as loaded
@@ -370,14 +398,20 @@ export default function JudgeTerminal() {
         !selectedContestantId ||
         (currentContestant && !activeCriteria.some((ac) => ac.segmentId === currentContestant.currentSegmentId))
       ) {
-        // Find the first contestant in the active segments
-        const firstActiveContestant = contestants.find((c) =>
-          activeCriteria.some((ac) => ac.segmentId === c.currentSegmentId),
-        )
+        // Get active contestants and sort by display order
+        const sortedContestants = contestants
+          .filter((c) => activeCriteria.some((ac) => ac.segmentId === c.currentSegmentId))
+          .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
 
-        if (firstActiveContestant) {
-          console.log("Automatically selecting first contestant:", firstActiveContestant.name)
-          setSelectedContestantId(firstActiveContestant.id)
+        // Select the contestant with the lowest display order
+        if (sortedContestants.length > 0) {
+          console.log(
+            "Automatically selecting contestant with lowest display order:",
+            sortedContestants[0].name,
+            "with display order:",
+            sortedContestants[0].displayOrder || 1,
+          )
+          setSelectedContestantId(sortedContestants[0].id)
         }
       }
     }
@@ -450,9 +484,18 @@ export default function JudgeTerminal() {
       if (!isFinalized && activeCriteria.length > 0 && uiState !== "scoring") {
         updateUIState("scoring")
 
-        // Set initial contestant if none selected
+        // Set initial contestant if none selected - choose the one with lowest display order
         if (!selectedContestantId && activeContestants.length > 0) {
-          setSelectedContestantId(activeContestants[0].id)
+          const sortedContestants = [...activeContestants].sort(
+            (a, b) => (a.displayOrder || 999) - (b.displayOrder || 999),
+          )
+          setSelectedContestantId(sortedContestants[0].id)
+          console.log(
+            "Selected contestant after refresh:",
+            sortedContestants[0].name,
+            "with display order:",
+            sortedContestants[0].displayOrder || 1,
+          )
         }
       }
     }
@@ -698,8 +741,11 @@ export default function JudgeTerminal() {
           if (contestant.currentSegmentId !== segmentId) return
 
           const score = currentScores[segmentId]?.[contestant.id]?.[criterionId]
-          if (score !== undefined) {
-            setScores(segmentId, contestant.id, judgeInfo.id, criterionId, score)
+          return
+
+          const contestantScore = currentScores[segmentId]?.[contestant.id]?.[criterionId]
+          if (contestantScore !== undefined) {
+            setScores(segmentId, contestant.id, judgeInfo.id, criterionId, contestantScore)
             setSavedContestants((prev) => new Set(prev).add(`${contestant.id}-${criterionId}`))
           }
         })
@@ -745,9 +791,9 @@ export default function JudgeTerminal() {
         }
 
         // Show success message
-        // toast.success("Your scores have been finalized successfully!", {
-        //   duration: 3000,
-        // })
+        toast.success("Your scores have been finalized successfully!", {
+          duration: 3000,
+        })
       } catch (error) {
         console.error("Error finalizing scores:", error)
         toast.error(`Failed to save scores: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -755,21 +801,59 @@ export default function JudgeTerminal() {
     }
   }
 
+  // Replace the existing navigateToPreviousContestant function with this version
   const navigateToPreviousContestant = () => {
     if (!selectedContestantId || isFinalized) return
 
-    const currentIndex = activeContestants.findIndex((c) => c.id === selectedContestantId)
-    if (currentIndex > 0) {
-      setSelectedContestantId(activeContestants[currentIndex - 1].id)
+    // Find the current contestant's display order
+    const currentContestant = activeContestants.find((c) => c.id === selectedContestantId)
+    if (!currentContestant) return
+
+    const currentDisplayOrder =
+      currentContestant.displayOrder || activeContestants.findIndex((c) => c.id === selectedContestantId) + 1
+
+    // Find the contestant with the next lower display order
+    const previousContestant = activeContestants
+      .filter((c) => {
+        const displayOrder = c.displayOrder || activeContestants.findIndex((contestant) => contestant.id === c.id) + 1
+        return displayOrder < currentDisplayOrder && c.currentSegmentId === currentContestant.currentSegmentId
+      })
+      .sort((a, b) => {
+        const displayOrderA = a.displayOrder || activeContestants.findIndex((contestant) => contestant.id === a.id) + 1
+        const displayOrderB = b.displayOrder || activeContestants.findIndex((contestant) => contestant.id === b.id) + 1
+        return displayOrderB - displayOrderA // Sort in descending order to get the closest previous
+      })[0]
+
+    if (previousContestant) {
+      setSelectedContestantId(previousContestant.id)
     }
   }
 
+  // Replace the existing navigateToNextContestant function with this version
   const navigateToNextContestant = () => {
     if (!selectedContestantId || isFinalized) return
 
-    const currentIndex = activeContestants.findIndex((c) => c.id === selectedContestantId)
-    if (currentIndex < activeContestants.length - 1) {
-      setSelectedContestantId(activeContestants[currentIndex + 1].id)
+    // Find the current contestant's display order
+    const currentContestant = activeContestants.find((c) => c.id === selectedContestantId)
+    if (!currentContestant) return
+
+    const currentDisplayOrder =
+      currentContestant.displayOrder || activeContestants.findIndex((c) => c.id === selectedContestantId) + 1
+
+    // Find the contestant with the next higher display order
+    const nextContestant = activeContestants
+      .filter((c) => {
+        const displayOrder = c.displayOrder || activeContestants.findIndex((contestant) => contestant.id === c.id) + 1
+        return displayOrder > currentDisplayOrder && c.currentSegmentId === currentContestant.currentSegmentId
+      })
+      .sort((a, b) => {
+        const displayOrderA = a.displayOrder || activeContestants.findIndex((contestant) => contestant.id === a.id) + 1
+        const displayOrderB = b.displayOrder || activeContestants.findIndex((contestant) => contestant.id === b.id) + 1
+        return displayOrderA - displayOrderB // Sort in ascending order to get the closest next
+      })[0]
+
+    if (nextContestant) {
+      setSelectedContestantId(nextContestant.id)
     }
   }
 
@@ -1136,8 +1220,17 @@ export default function JudgeTerminal() {
 
           <div className="text-center">
             <h2 className="text-lg font-medium">
-              Contestant {activeContestants.findIndex((c) => c.id === selectedContestantId) + 1} of{" "}
-              {activeContestants.length}
+              Contestant{" "}
+              {currentContestant
+                ? currentContestant.displayOrder ||
+                  activeContestants.findIndex((c) => c.id === currentContestant.id) + 1
+                : 0}{" "}
+              of{" "}
+              {
+                activeContestants.filter((c) =>
+                  currentContestant ? c.currentSegmentId === currentContestant.currentSegmentId : true,
+                ).length
+              }
             </h2>
             <p className="text-sm text-muted-foreground">{currentSegment?.name || ""}</p>
           </div>

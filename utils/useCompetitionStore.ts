@@ -53,15 +53,14 @@ interface Segment {
   criteria: Criterion[]
 }
 
-// Update the Contestant interface to allow null for imageUrl
-// Find the Contestant interface and update the imageUrl property to be nullable
-
+// Update the Contestant interface to include displayOrder property
 interface Contestant extends ContestantType {
   id: string
   name: string
   gender: "Male" | "Female"
   currentSegmentId: string
   imageUrl: string | null
+  displayOrder?: number // Add displayOrder property
 }
 
 interface CompetitionSettings extends CompetitionSettingsType {
@@ -103,7 +102,8 @@ interface CompetitionState {
   addContestant: (name: string, gender?: "Male" | "Female") => void
   updateContestantName: (contestantId: string, newName: string) => void
   updateContestantSegment: (contestantId: string, segmentId: string) => void
-  updateContestantImage: (contestantId: string, imageUrl: string | null) => void // New method
+  updateContestantImage: (contestantId: string, imageUrl: string | null) => void
+  updateContestantDisplayOrder: (contestantId: string, displayOrder: number) => void // Add new method
   removeContestant: (id: string) => void
   addJudge: (name: string) => void
   removeJudge: (id: string) => void
@@ -265,6 +265,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 1, // Add default display order
     },
     {
       id: "2",
@@ -272,6 +273,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 2, // Add default display order
     },
     {
       id: "3",
@@ -279,6 +281,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 3, // Add default display order
     },
     {
       id: "4",
@@ -286,6 +289,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 4, // Add default display order
     },
     {
       id: "5",
@@ -293,6 +297,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 5, // Add default display order
     },
     {
       id: "6",
@@ -300,6 +305,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 6, // Add default display order
     },
     {
       id: "7",
@@ -307,6 +313,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 7, // Add default display order
     },
     {
       id: "8",
@@ -314,6 +321,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 8, // Add default display order
     },
     {
       id: "9",
@@ -321,6 +329,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 9, // Add default display order
     },
     {
       id: "10",
@@ -328,6 +337,7 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       gender: "Female",
       currentSegmentId: "1",
       imageUrl: null,
+      displayOrder: 10, // Add default display order
     },
   ],
   judges: [
@@ -421,7 +431,14 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
       return {
         contestants: [
           ...state.contestants,
-          { id: newId.toString(), name, gender, currentSegmentId: firstSegmentId, imageUrl: null },
+          {
+            id: newId.toString(),
+            name,
+            gender,
+            currentSegmentId: firstSegmentId,
+            imageUrl: null,
+            displayOrder: newId, // Set default display order to match ID
+          },
         ],
       }
     }),
@@ -440,6 +457,12 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
   updateContestantImage: (contestantId: string, imageUrl: string | null) =>
     set((state) => ({
       contestants: state.contestants.map((c) => (c.id === contestantId ? { ...c, imageUrl: imageUrl } : c)),
+    })),
+
+  // New method to update contestant display order
+  updateContestantDisplayOrder: (contestantId: string, displayOrder: number) =>
+    set((state) => ({
+      contestants: state.contestants.map((c) => (c.id === contestantId ? { ...c, displayOrder } : c)),
     })),
 
   removeContestant: (id) =>

@@ -1,17 +1,16 @@
 "use client"
 
+import { AlertDialogTrigger } from "@/components/ui/alert-dialog"
+
 import React, { useState, useEffect } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import FinalRankings from "./results/FinalRankings"
-import DetailedScores from "./results/DetailedScores"
-import JudgeComparison from "./results/JudgeComparison"
-import RankingBreakdown from "./results/RankingBreakdown"
 import CriteriaScores from "./results/CriteriaScores"
 import TestScoring from "./test-scoring"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Award, RefreshCw, Clock } from "lucide-react"
+import { ChevronRight, Award, RefreshCw, Clock, Shuffle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
@@ -20,24 +19,74 @@ import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { usePolling } from "@/hooks/usePolling"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
+// Modify the ContestantSequence component to include a ScrollArea
+const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
+  const { contestants } = useCompetitionStore()
+
+  // Get contestants in this segment, sorted by display order
+  const segmentContestants = contestants
+    .filter((c) => c.currentSegmentId === segmentId)
+    .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
+
+  return (
+    <ScrollArea className="h-[400px]">
+      <div className="space-y-1 py-1">
+        {segmentContestants.length === 0 ? (
+          <p className="text-center text-muted-foreground">No contestants in this segment</p>
+        ) : (
+          segmentContestants.map((contestant, index) => (
+            <div key={contestant.id} className="flex items-center p-1.5 border rounded-md">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                <span className="font-bold text-sm">{contestant.displayOrder || index + 1}</span>
+              </div>
+              <div>
+                <p className="font-medium text-sm">{contestant.name}</p>
+                <p className="text-xs text-muted-foreground">Display Order: {contestant.displayOrder || "Not set"}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </ScrollArea>
+  )
+}
 
 export function Results() {
   const {
     competitionSettings,
     contestants,
     updateContestantSegment,
+    updateContestantDisplayOrder,
     scores,
     judges,
     setScores,
     selectedCompetitionId,
-    saveCompetition, // Make sure to include this in the destructuring
+    saveCompetition,
   } = useCompetitionStore()
   const { segments } = competitionSettings
   const [selectedSegmentId, setSelectedSegmentId] = React.useState<string>(segments[0]?.id || "no-segments")
   const [activeContentTab, setActiveContentTab] = React.useState<string>("overview")
   const [showTestScoring, setShowTestScoring] = React.useState(false)
   const [activeTab, setActiveTab] = useState("final-rankings")
-  const [isSaving, setIsSaving] = useState(false) // Add state for saving indicator
+  const [isSaving, setIsSaving] = useState(false)
+  const [showSequenceDialog, setShowSequenceDialog] = useState(false)
+
+  // Add this state at the top of the Results component, near other state declarations
+  const [showAdvanceDialog, setShowAdvanceDialog] = useState(false)
+  const [shuffleNextSegment, setShuffleNextSegment] = useState(true)
 
   // Add a debug panel to help troubleshoot score issues
   const [showDebug, setShowDebug] = React.useState(false)
@@ -71,7 +120,17 @@ export function Results() {
     }
   }
 
-  // Modified handleAdvanceToNextSegment function
+  // Function to shuffle an array using Fisher-Yates algorithm
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArray = [...array]
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[newArray[i], newArray[j]] = [newArray[j], newArray[i]]
+    }
+    return newArray
+  }
+
+  // Replace the existing handleAdvanceToNextSegment function with this version
   const handleAdvanceToNextSegment = async () => {
     if (!nextSegment) {
       toast.error("This is the last segment. Cannot advance further.")
@@ -82,6 +141,14 @@ export function Results() {
       toast.error("Current segment not found.")
       return
     }
+
+    // Show the advance dialog instead of immediately advancing
+    setShowAdvanceDialog(true)
+  }
+
+  // Add this new function to handle the actual advancement after dialog confirmation
+  const confirmAdvanceToNextSegment = async () => {
+    setShowAdvanceDialog(false)
 
     // Temporarily stop polling to prevent conflicts
     stopPolling()
@@ -196,24 +263,48 @@ export function Results() {
         const advancingFemaleContestants = sortedFemaleContestants.slice(0, advancingCount)
 
         // Combine the advancing contestants
-        const advancingContestants = [...advancingMaleContestants, ...advancingFemaleContestants]
+        let advancingContestants = [...advancingMaleContestants, ...advancingFemaleContestants]
+
+        // Shuffle the advancing contestants if option is selected
+        if (shuffleNextSegment) {
+          advancingContestants = shuffleArray(advancingContestants)
+        }
 
         // Log for debugging
         console.log("Advancing male contestants:", advancingMaleContestants.length)
         console.log("Advancing female contestants:", advancingFemaleContestants.length)
         console.log("Total advancing contestants:", advancingContestants.length)
+        console.log(
+          "Order:",
+          advancingContestants.map((c) => c.name),
+        )
 
-        // Move advancing contestants to the next segment
-        advancingContestants.forEach((contestant) => {
+        // Move advancing contestants to the next segment and assign display order
+        advancingContestants.forEach((contestant, index) => {
           // Update segment
           updateContestantSegment(contestant.id, nextSegment.id)
+          // Assign display order (1-based) if shuffling
+          if (shuffleNextSegment) {
+            updateContestantDisplayOrder(contestant.id, index + 1)
+          } else {
+            // If not shuffling, use the original index as display order
+            // For males, use their position in the sorted male list
+            if (contestant.gender?.toLowerCase() === "male") {
+              const originalIndex = sortedMaleContestants.findIndex((c) => c.id === contestant.id)
+              updateContestantDisplayOrder(contestant.id, originalIndex + 1)
+            } else {
+              // For females, use their position in the sorted female list
+              const originalIndex = sortedFemaleContestants.findIndex((c) => c.id === contestant.id)
+              updateContestantDisplayOrder(contestant.id, originalIndex + 1)
+            }
+          }
         })
 
         // Save changes to the database
         await saveCompetition()
 
         toast.success(
-          `Advanced ${advancingMaleContestants.length} male and ${advancingFemaleContestants.length} female contestants to ${nextSegment.name}`,
+          `Advanced ${advancingMaleContestants.length} male and ${advancingFemaleContestants.length} female contestants to ${nextSegment.name}${shuffleNextSegment ? " with randomized order" : " with original order"}`,
         )
       } else {
         // Original logic for when gender separation is not enabled
@@ -285,16 +376,40 @@ export function Results() {
         // Get the top contestants based on advancingCount
         const advancingContestants = sortedContestants.slice(0, advancingCount)
 
-        // Move advancing contestants to the next segment
-        advancingContestants.forEach((contestant) => {
+        // Create a copy that we can shuffle if needed
+        let finalContestants = [...advancingContestants]
+
+        // Shuffle the advancing contestants if option is selected
+        if (shuffleNextSegment) {
+          finalContestants = shuffleArray(finalContestants)
+          console.log(
+            "Shuffled order:",
+            finalContestants.map((c) => c.name),
+          )
+        }
+
+        // Move advancing contestants to the next segment and assign display order
+        finalContestants.forEach((contestant, index) => {
           // Update segment
           updateContestantSegment(contestant.id, nextSegment.id)
+
+          // Assign display order (1-based)
+          if (shuffleNextSegment) {
+            // If shuffling, use the new shuffled index
+            updateContestantDisplayOrder(contestant.id, index + 1)
+          } else {
+            // If not shuffling, use the original ranking position
+            const originalIndex = sortedContestants.findIndex((c) => c.id === contestant.id)
+            updateContestantDisplayOrder(contestant.id, originalIndex + 1)
+          }
         })
 
         // Save changes to the database
         await saveCompetition()
 
-        toast.success(`Advanced ${advancingContestants.length} contestants to ${nextSegment.name}`)
+        toast.success(
+          `Advanced ${advancingContestants.length} contestants to ${nextSegment.name}${shuffleNextSegment ? " with randomized order" : " with original order"}`,
+        )
       }
 
       // Switch to the next segment tab
@@ -302,6 +417,38 @@ export function Results() {
     } catch (error) {
       console.error("Error advancing contestants:", error)
       toast.error("Failed to advance contestants. Please try again.")
+    } finally {
+      setIsSaving(false)
+      // Resume polling after the operation is complete
+      startPolling()
+    }
+  }
+
+  // Add this new function to reset display orders for debugging
+  const resetDisplayOrder = async () => {
+    // Temporarily stop polling to prevent conflicts
+    stopPolling()
+    setIsSaving(true)
+
+    try {
+      // Get contestants in the current segment
+      const segmentContestants = contestants.filter((c) => c.currentSegmentId === selectedSegmentId)
+
+      // Sort them by ID to have a consistent order
+      const sortedContestants = [...segmentContestants].sort((a, b) => Number.parseInt(a.id) - Number.parseInt(b.id))
+
+      // Assign sequential display orders (1, 2, 3...)
+      sortedContestants.forEach((contestant, index) => {
+        updateContestantDisplayOrder(contestant.id, index + 1)
+      })
+
+      // Save changes to the database
+      await saveCompetition()
+
+      toast.success(`Reset display order for ${sortedContestants.length} contestants in ${currentSegment?.name}`)
+    } catch (error) {
+      console.error("Error resetting display order:", error)
+      toast.error("Failed to reset display order. Please try again.")
     } finally {
       setIsSaving(false)
       // Resume polling after the operation is complete
@@ -468,42 +615,149 @@ export function Results() {
                   <span className="font-medium">Advancing:</span> {currentSegment?.advancingCandidates || 0}
                 </p>
               </div>
-              {/* <PrintResults key={currentSegment?.id} segmentId={currentSegment?.id} /> */}
-              <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment || isSaving}>
-                {isSaving ? (
-                  <>Saving changes...</>
-                ) : (
-                  <>
-                    Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
+
+              <div className="flex gap-2">
+                {/* Contestant Sequence Dialog */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      // Disable the button if we're in the first segment
+                      disabled={currentSegmentIndex === 0}
+                      title={
+                        currentSegmentIndex === 0
+                          ? "First segment is always in original order"
+                          : "View contestant sequence"
+                      }
+                    >
+                      <Shuffle className="h-4 w-4" />
+                      View Contestant Sequence
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Contestant Sequence for {currentSegment?.name}</DialogTitle>
+                    </DialogHeader>
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-1 py-1">
+                        {currentContestants.length === 0 ? (
+                          <p className="text-center text-muted-foreground">No contestants in this segment</p>
+                        ) : (
+                          currentContestants
+                            .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
+                            .map((contestant, index) => (
+                              <div key={contestant.id} className="flex items-center p-1.5 border rounded-md">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                                  <span className="font-bold text-sm">{contestant.displayOrder || index + 1}</span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{contestant.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Display Order: {contestant.displayOrder || "Not set"}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Add Reset Display Order Button */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      title="Reset display order for debugging"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Reset Display Order
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Reset Display Order</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will reset the display order of all contestants in the current segment to sequential
+                        numbers (1, 2, 3...). This is for debugging purposes only.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={resetDisplayOrder} disabled={isSaving}>
+                        {isSaving ? "Resetting..." : "Reset Display Order"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                <Button onClick={handleAdvanceToNextSegment} disabled={!nextSegment}>
+                  Advance to {nextSegment?.name || "Next"} <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Advance Confirmation Dialog */}
+      <AlertDialog open={showAdvanceDialog} onOpenChange={setShowAdvanceDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Advance Contestants</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to advance the top {currentSegment?.advancingCandidates || 0} contestants to the{" "}
+              {nextSegment?.name} segment.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="flex items-center space-x-2 mb-4">
+              <input
+                type="checkbox"
+                id="shuffle-contestants"
+                checked={shuffleNextSegment}
+                onChange={(e) => setShuffleNextSegment(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <label htmlFor="shuffle-contestants" className="text-sm font-medium">
+                Randomize contestant order (hide rankings)
+              </label>
+            </div>
+            <div className="bg-muted p-3 rounded-md text-sm">
+              {shuffleNextSegment ? (
+                <p>
+                  <span className="font-medium">Randomized order:</span> Contestants will be shown to judges in a random
+                  order, hiding their current rankings.
+                </p>
+              ) : (
+                <p>
+                  <span className="font-medium">Original order:</span> Contestants will be shown to judges in order of
+                  their current rankings.
+                </p>
+              )}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAdvanceToNextSegment} disabled={isSaving}>
+              {isSaving ? "Advancing..." : "Advance Contestants"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Results Tabs */}
       <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
-          {/* <TabsTrigger value="ranking-breakdown">Ranking Breakdown</TabsTrigger>
-          <TabsTrigger value="detailed-scores">Detailed Scores</TabsTrigger>
-          <TabsTrigger value="judge-comparison">Judge Comparison</TabsTrigger> */}
           <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
         </TabsList>
         <TabsContent value="final-rankings">
           <FinalRankings segmentId={selectedSegmentId} />
         </TabsContent>
-        {/* <TabsContent value="ranking-breakdown">
-          <RankingBreakdown segmentId={selectedSegmentId} />
-        </TabsContent>
-        <TabsContent value="detailed-scores">
-          <DetailedScores segmentId={selectedSegmentId} />
-        </TabsContent>
-        <TabsContent value="judge-comparison">
-          <JudgeComparison segmentId={selectedSegmentId} />
-        </TabsContent> */}
         <TabsContent value="criteria-scores">
           <CriteriaScores segmentId={selectedSegmentId} />
         </TabsContent>
