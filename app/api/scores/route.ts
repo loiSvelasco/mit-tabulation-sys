@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       return new Response(null, { status: 304 }) // Not Modified
     }
 
-    console.log(`Retrieved ${scores.length} scores for competition ID: ${competitionId}`)
+    // console.log(`Retrieved ${scores.length} scores for competition ID: ${competitionId}`)
 
     return new Response(JSON.stringify(scores), {
       status: 200,
@@ -65,9 +65,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log(
-      `Saving score: competition=${competitionId}, segment=${segmentId}, contestant=${contestantId}, judge=${judgeId}, criteria=${criteriaId}, score=${score}`,
-    )
+    // console.log(
+    //   `Saving score: competition=${competitionId}, segment=${segmentId}, contestant=${contestantId}, judge=${judgeId}, criteria=${criteriaId}, score=${score}`,
+    // )
 
     // Check if the score already exists
     const existingScore = await query(
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Score saved successfully" })
   } catch (error) {
-    console.error("Error saving score:", error)
+    // console.error("Error saving score:", error)
     return NextResponse.json(
       {
         error: "Failed to save score",

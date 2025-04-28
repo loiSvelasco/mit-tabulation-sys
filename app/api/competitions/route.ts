@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = user.id
-    console.log("User ID:", userId, "Type:", typeof userId)
+    // console.log("User ID:", userId, "Type:", typeof userId)
 
     const body = await request.json()
     const { competitionData, name, isActive, competitionId } = body
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = user.id
-    console.log("User ID:", userId)
+    // console.log("User ID:", userId)
 
     // Get all competitions for the current user
     const competitions = await query(

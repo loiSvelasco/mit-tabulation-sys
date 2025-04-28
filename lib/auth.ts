@@ -76,7 +76,7 @@ export async function getCurrentUser(req: NextRequest) {
     const cookieStore = cookies()
 
     // Log for debugging
-    console.log("Cookie header:", req.headers.get("cookie"))
+    // console.log("Cookie header:", req.headers.get("cookie"))
 
     let token: string | undefined
 
@@ -85,7 +85,7 @@ export async function getCurrentUser(req: NextRequest) {
       (await cookieStore).get("better-auth.session_token")?.value ||
       (await cookieStore).get("__Secure-better-auth.session_token")?.value
 
-    console.log("Token from cookies() API:", token ? "Found" : "Not found")
+    // console.log("Token from cookies() API:", token ? "Found" : "Not found")
 
     if (!token) {
       return null
@@ -93,9 +93,9 @@ export async function getCurrentUser(req: NextRequest) {
 
     // Use BetterAuth's session verification instead of your custom JWT verification
     try {
-      console.log("Attempting to get session with better-auth")
+      // console.log("Attempting to get session with better-auth")
       const headersList = await headers()
-      console.log("Headers available:", Array.from(headersList.keys()))
+      // console.log("Headers available:", Array.from(headersList.keys()))
 
       const session = await auth.api.getSession({
         headers: headersList,

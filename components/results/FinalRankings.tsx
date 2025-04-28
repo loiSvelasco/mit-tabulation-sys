@@ -152,7 +152,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                         </TableCell>
                         <TableCell className="text-center align-middle">
                           {contestant.name}
-                          {contestant.gender && <span className="ml-2 text-xs">({contestant.gender})</span>}
+                          {/* {contestant.gender && <span className="ml-2 text-xs">({contestant.gender})</span>} */}
                         </TableCell>
 
                         {/* Raw scores for each judge */}

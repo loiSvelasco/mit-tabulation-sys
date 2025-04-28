@@ -28,24 +28,49 @@ function ActiveCriteriaManager() {
   // Initialize local state from store only once on mount
   useEffect(() => {
     if (!initialized) {
+      // Filter out prejudged and carry-forward criteria from the active criteria list
+      const filteredActiveCriteria = storeActiveCriteria.filter((ac) => {
+        const segment = competitionSettings.segments.find((s) => s.id === ac.segmentId)
+        const criterion = segment?.criteria.find((c) => c.id === ac.criterionId)
+        return !(criterion?.isPrejudged || criterion?.isCarryForward)
+      })
+
       setLocalActiveCriteria(
-        storeActiveCriteria.map((ac) => ({ segmentId: ac.segmentId, criterionId: ac.criterionId })),
+        filteredActiveCriteria.map((ac) => ({ segmentId: ac.segmentId, criterionId: ac.criterionId })),
       )
       setInitialized(true)
     }
-  }, [storeActiveCriteria, initialized])
+  }, [storeActiveCriteria, initialized]) // Keep this dependency array stable
 
   // Check if a criterion is active in our local state
   const isActive = useCallback(
     (segmentId: string, criterionId: string) => {
+      // Find the criterion to check if it's prejudged or carry-forward
+      const segment = competitionSettings.segments.find((s) => s.id === segmentId)
+      const criterion = segment?.criteria.find((c) => c.id === criterionId)
+
+      // Always return false for prejudged or carry-forward criteria
+      if (criterion?.isPrejudged || criterion?.isCarryForward) {
+        return false
+      }
+
       return localActiveCriteria.some((ac) => ac.segmentId === segmentId && ac.criterionId === criterionId)
     },
-    [localActiveCriteria],
+    [localActiveCriteria, competitionSettings.segments],
   )
 
   // Toggle a criterion in our local state AND in the store
   const handleToggle = useCallback(
     async (segmentId: string, criterionId: string) => {
+      // Find the criterion
+      const segment = competitionSettings.segments.find((s) => s.id === segmentId)
+      const criterion = segment?.criteria.find((c) => c.id === criterionId)
+
+      // Don't allow toggling prejudged or carry-forward criteria
+      if (criterion?.isPrejudged || criterion?.isCarryForward) {
+        return
+      }
+
       // Update local state
       setLocalActiveCriteria((prev) => {
         const isCurrentlyActive = prev.some((ac) => ac.segmentId === segmentId && ac.criterionId === criterionId)
@@ -73,7 +98,7 @@ function ActiveCriteriaManager() {
         setIsSaving(false)
       }
     },
-    [toggleActiveCriterion, saveCompetition],
+    [toggleActiveCriterion, saveCompetition, competitionSettings.segments],
   )
 
   // Clear all active criteria in local state AND in the store
@@ -151,19 +176,37 @@ function ActiveCriteriaManager() {
                   {segment.criteria.map((criterion) => {
                     const checkboxId = `criterion-${segment.id}-${criterion.id}`
                     const isChecked = isActive(segment.id, criterion.id)
+                    const isPrejudged = criterion.isPrejudged
+                    const isCarryForward = criterion.isCarryForward
+                    const isDisabled = isPrejudged || isCarryForward || isSaving
 
                     return (
                       <div key={criterion.id} className="flex items-center justify-between py-1 px-2 text-sm">
-                        <label htmlFor={checkboxId} className="flex items-center cursor-pointer flex-1">
+                        <label
+                          htmlFor={checkboxId}
+                          className={`flex items-center flex-1 ${isDisabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                        >
                           <input
                             type="checkbox"
                             id={checkboxId}
                             checked={isChecked}
                             onChange={() => handleToggle(segment.id, criterion.id)}
                             className="mr-2 h-4 w-4"
-                            disabled={isSaving}
+                            disabled={isDisabled}
                           />
                           <span className="text-sm leading-none">{criterion.name}</span>
+
+                          {isPrejudged && (
+                            <Badge variant="secondary" className="ml-2 text-xs py-0 h-5">
+                              Prejudged
+                            </Badge>
+                          )}
+
+                          {isCarryForward && (
+                            <Badge variant="outline" className="ml-2 text-xs py-0 h-5 border-amber-500 text-amber-600">
+                              Carry Forward
+                            </Badge>
+                          )}
                         </label>
                       </div>
                     )

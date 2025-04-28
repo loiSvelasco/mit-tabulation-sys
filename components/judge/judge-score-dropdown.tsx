@@ -16,13 +16,16 @@ export function JudgeScoreDropdown({ maxScore, increment = 0.25, value, onChange
     scoreOptions.push(Number(score.toFixed(2))) // Fix floating point precision issues
   }
 
+  // Reverse the array to display scores from greatest to least
+  const descendingScoreOptions = [...scoreOptions].reverse()
+
   return (
     <Select value={value.toString()} onValueChange={(val) => onChange(Number(val))}>
       <SelectTrigger className="w-[120px]">
         <SelectValue placeholder="Select score" />
       </SelectTrigger>
       <SelectContent>
-        {scoreOptions.map((score) => (
+        {descendingScoreOptions.map((score) => (
           <SelectItem key={score} value={score.toString()}>
             {score.toFixed(2)}
           </SelectItem>

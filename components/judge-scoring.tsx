@@ -21,6 +21,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { SyncJudgesButton } from "@/components/judge/sync-judges-button"
 import { toast } from "sonner"
 import { ImageUpload } from "./image-upload"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const EnhancedJudgeScoring = () => {
   const {
@@ -43,6 +53,10 @@ const EnhancedJudgeScoring = () => {
   const [contestantGender, setContestantGender] = useState<"Male" | "Female">("Female")
   const [editingContestant, setEditingContestant] = useState<{ contestantId: string; name: string } | null>(null)
   const [localJudges, setLocalJudges] = useState(judges)
+
+  // States for delete confirmations with both ID and name
+  const [deleteContestant, setDeleteContestant] = useState<{ id: string; name: string } | null>(null)
+  const [deleteJudge, setDeleteJudge] = useState<{ id: string; name: string } | null>(null)
 
   // Keep local judges in sync with store judges
   useEffect(() => {
@@ -168,6 +182,20 @@ const EnhancedJudgeScoring = () => {
     updateContestantImage(contestantId, null)
   }
 
+  // Handle contestant deletion with confirmation
+  const handleDeleteContestant = (contestantId: string) => {
+    removeContestant(contestantId)
+    toast.success("Contestant deleted successfully")
+  }
+
+  // Handle judge deletion with confirmation
+  const handleDeleteJudge = (judgeId: string) => {
+    removeJudge(judgeId)
+    setNeedsSync(true)
+    toast.success("Judge deleted successfully")
+    toast.info("Don't forget to sync to save changes to the database.")
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* Contestants Management */}
@@ -281,7 +309,11 @@ const EnhancedJudgeScoring = () => {
                           </Button>
                         </>
                       )}
-                      <Button size="icon" variant="destructive" onClick={() => removeContestant(contestant.id)}>
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        onClick={() => setDeleteContestant({ id: contestant.id, name: contestant.name })}
+                      >
                         <Trash2Icon size={16} />
                       </Button>
                     </TableCell>
@@ -387,7 +419,11 @@ const EnhancedJudgeScoring = () => {
                           </Button>
                         </>
                       )}
-                      <Button size="icon" variant="destructive" onClick={() => removeJudge(judge.id)}>
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        onClick={() => setDeleteJudge({ id: judge.id, name: judge.name })}
+                      >
                         <Trash2Icon size={16} />
                       </Button>
                     </TableCell>
@@ -405,6 +441,61 @@ const EnhancedJudgeScoring = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Contestant Delete Confirmation Dialog */}
+      <AlertDialog open={deleteContestant !== null} onOpenChange={(open) => !open && setDeleteContestant(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete contestant <span className="font-semibold">{deleteContestant?.name}</span>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteContestant) {
+                  handleDeleteContestant(deleteContestant.id)
+                  setDeleteContestant(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Judge Delete Confirmation Dialog */}
+      <AlertDialog open={deleteJudge !== null} onOpenChange={(open) => !open && setDeleteJudge(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete judge <span className="font-semibold">{deleteJudge?.name}</span>? This
+              action cannot be undone.
+              {needsSync ? " Remember to sync changes to save to the database." : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteJudge) {
+                  handleDeleteJudge(deleteJudge.id)
+                  setDeleteJudge(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

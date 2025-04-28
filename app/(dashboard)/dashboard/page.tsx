@@ -164,6 +164,33 @@ const Dashboard = () => {
     toast.info("Creation canceled")
   }
 
+  // Add a function to set a competition as active
+  const setCompetitionActive = async (competitionId: number) => {
+    try {
+      const response = await fetch(`/api/competitions/${competitionId}/set-active`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to set competition as active")
+      }
+
+      // Refresh the competitions list to show updated active status
+      const refreshResponse = await fetch("/api/competitions")
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json()
+        setCompetitions(data)
+      }
+    } catch (error) {
+      console.error("Error setting competition as active:", error)
+      toast.error("Failed to set competition as active")
+    }
+  }
+
+  // Modify the handleSave function to set the competition as active when saving
   const handleSave = async () => {
     try {
       // Save the competition
@@ -178,18 +205,32 @@ const Dashboard = () => {
         const data = await response.json()
         setCompetitions(data)
 
-        // If we created a new competition, select it
+        // If we created a new competition, select it and set it as active
         if (isCreatingNew && result.id) {
           setSelectedCompetition(result.id)
           // Save to localStorage
           localStorage.setItem(SELECTED_COMPETITION_KEY, result.id.toString())
+          // Set the new competition as active
+          await setCompetitionActive(result.id)
           // Reset the creating new flag
           setIsCreatingNew(false)
+        } else if (selectedCompetition) {
+          // If updating an existing competition, ensure it's set as active
+          await setCompetitionActive(selectedCompetition)
         }
       }
     } catch (error) {
       toast.error("Failed to save competition data")
     }
+  }
+
+  // Modify the competition selection handler to set the selected competition as active
+  const handleCompetitionChange = async (value: string) => {
+    const competitionId = Number.parseInt(value)
+    setSelectedCompetition(competitionId)
+
+    // Set the selected competition as active
+    await setCompetitionActive(competitionId)
   }
 
   const handleOpenPublicDisplay = () => {
@@ -217,7 +258,11 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <Select
                   value={selectedCompetition?.toString() || ""}
-                  onValueChange={(value) => setSelectedCompetition(Number.parseInt(value))}
+                  onValueChange={(value) => {
+                    const id = Number.parseInt(value)
+                    setSelectedCompetition(id)
+                    setCompetitionActive(id)
+                  }}
                   disabled={isLoadingCompetition || isCreatingNew}
                 >
                   <SelectTrigger className="w-[250px]">
@@ -226,7 +271,7 @@ const Dashboard = () => {
                   <SelectContent>
                     {competitions.map((comp) => (
                       <SelectItem key={comp.id} value={comp.id.toString()}>
-                        {comp.name} {comp.is_active && "(Active)"}
+                        {comp.name} {comp.is_active ? "(Active)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
