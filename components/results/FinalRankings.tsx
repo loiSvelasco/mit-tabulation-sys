@@ -1,7 +1,6 @@
 "use client"
 
-import React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight } from "lucide-react"
@@ -44,9 +43,10 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
     // For each judge, calculate their individual rankings
     const judgeRankings: Record<string, Record<string, number>> = {}
+    const judgeScores: Record<string, Record<string, number>> = {}
 
     judges.forEach((judge) => {
-      const judgeScores: Record<string, number> = {}
+      const judgeScoreMap: Record<string, number> = {}
 
       contestantsGroup.forEach((contestant) => {
         // Get total score from this judge for this contestant
@@ -56,10 +56,56 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
           // Round the total score
           totalScore = roundToTwoDecimals(totalScore)
         }
-        judgeScores[contestant.id] = totalScore
+        judgeScoreMap[contestant.id] = totalScore
       })
 
-      judgeRankings[judge.id] = convertScoresToRanks(judgeScores)
+      judgeScores[judge.id] = judgeScoreMap
+      judgeRankings[judge.id] = convertScoresToRanks(judgeScoreMap)
+    })
+
+    // Calculate average scores for each contestant
+    const avgScores: Record<string, number> = {}
+    contestantsGroup.forEach((contestant) => {
+      let totalScore = 0
+      let count = 0
+
+      judges.forEach((judge) => {
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+          const judgeTotal = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+            (sum, score) => sum + score,
+            0,
+          )
+
+          if (judgeTotal > 0) {
+            totalScore += judgeTotal
+            count++
+          }
+        }
+      })
+
+      avgScores[contestant.id] = count > 0 ? roundToTwoDecimals(totalScore / count) : 0
+    })
+
+    // Calculate average scores per criteria for each contestant
+    const avgCriteriaScores: Record<string, Record<string, number>> = {}
+    contestantsGroup.forEach((contestant) => {
+      const criteriaScores: Record<string, number> = {}
+
+      criteria.forEach((criterion) => {
+        let totalCriterionScore = 0
+        let criterionCount = 0
+
+        judges.forEach((judge) => {
+          if (scores[segmentId]?.[contestant.id]?.[judge.id]?.[criterion.id]) {
+            totalCriterionScore += scores[segmentId][contestant.id][judge.id][criterion.id]
+            criterionCount++
+          }
+        })
+
+        criteriaScores[criterion.id] = criterionCount > 0 ? roundToTwoDecimals(totalCriterionScore / criterionCount) : 0
+      })
+
+      avgCriteriaScores[contestant.id] = criteriaScores
     })
 
     // Sort contestants by rank
@@ -68,6 +114,25 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
       const rankB = rankings[b.id]?.rank || 999
       return rankA - rankB
     })
+
+    // Determine what columns to show based on ranking method
+    const rankingMethod = competitionSettings.ranking.method
+
+    // Helper function to calculate average rank for a contestant
+    const calculateAvgRank = (contestantId: string) => {
+      let totalRank = 0
+      let rankCount = 0
+
+      judges.forEach((judge) => {
+        const rank = judgeRankings[judge.id]?.[contestantId]
+        if (rank) {
+          totalRank += rank
+          rankCount++
+        }
+      })
+
+      return rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
+    }
 
     return (
       <div className="mb-6">
@@ -84,14 +149,32 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 <TableHead rowSpan={2} className="align-middle text-center bg-muted">
                   Contestant
                 </TableHead>
-                <TableHead colSpan={judges.length} className="text-center bg-muted">
-                  Raw Scores
-                </TableHead>
-                <TableHead colSpan={judges.length} className="text-center bg-muted">
-                  Ranks
-                </TableHead>
+
+                {/* Dynamic header based on ranking method */}
+                {rankingMethod === "avg-rank" ? (
+                  <>
+                    {/* Show criteria columns */}
+                    {criteria.map((criterion) => (
+                      <TableHead key={criterion.id} className="text-center bg-muted">
+                        {criterion.name}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center bg-muted">Average Score</TableHead>
+                    <TableHead className="text-center bg-muted">Rank</TableHead>
+                  </>
+                ) : (
+                  <>
+                    <TableHead colSpan={judges.length} className="text-center bg-muted">
+                      Raw Scores
+                    </TableHead>
+                    <TableHead colSpan={judges.length} className="text-center bg-muted">
+                      Ranks
+                    </TableHead>
+                  </>
+                )}
+
                 <TableHead rowSpan={2} className="align-middle text-center bg-muted">
-                  Avg Rank
+                  {rankingMethod === "rank-avg-rank" ? "Final Rank" : "Avg Rank"}
                 </TableHead>
                 <TableHead rowSpan={2} className="align-middle text-center bg-muted">
                   Final Rank
@@ -102,36 +185,42 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
               </TableRow>
               <TableRow className="divide-x divide-border">
                 <TableHead className="bg-muted"></TableHead>
-                {/* Judge names for raw scores */}
-                {judges.map((judge) => (
-                  <TableHead key={`score-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
-                    {judge.name}
-                  </TableHead>
-                ))}
-                {/* Judge names for ranks */}
-                {judges.map((judge) => (
-                  <TableHead key={`rank-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
-                    {judge.name}
-                  </TableHead>
-                ))}
+
+                {/* Dynamic subheader based on ranking method */}
+                {rankingMethod === "avg-rank" ? (
+                  <>
+                    {/* Subheaders for criteria columns */}
+                    {criteria.map((criterion) => (
+                      <TableHead key={`sub-${criterion.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                        (max: {criterion.maxScore})
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Value</TableHead>
+                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Position</TableHead>
+                  </>
+                ) : (
+                  <>
+                    {/* Judge names for raw scores */}
+                    {judges.map((judge) => (
+                      <TableHead key={`score-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                        {judge.name}
+                      </TableHead>
+                    ))}
+                    {/* Judge names for ranks */}
+                    {judges.map((judge) => (
+                      <TableHead key={`rank-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                        {judge.name}
+                      </TableHead>
+                    ))}
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-border">
               {sortedContestants.length > 0 ? (
                 sortedContestants.map((contestant, index) => {
                   // Calculate average rank
-                  let totalRank = 0
-                  let rankCount = 0
-
-                  judges.forEach((judge) => {
-                    const rank = judgeRankings[judge.id]?.[contestant.id]
-                    if (rank) {
-                      totalRank += rank
-                      rankCount++
-                    }
-                  })
-
-                  const avgRank = rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
+                  const avgRank = calculateAvgRank(contestant.id)
                   const isAdvancing = segment && index < (segment.advancingCandidates || 0)
                   const isEven = index % 2 === 0
                   const rowClass = isAdvancing ? "bg-green-50" : isEven ? "bg-muted/20" : ""
@@ -155,35 +244,56 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                           {/* {contestant.gender && <span className="ml-2 text-xs">({contestant.gender})</span>} */}
                         </TableCell>
 
-                        {/* Raw scores for each judge */}
-                        {judges.map((judge) => {
-                          let score = 0
-                          if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-                            score = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
-                              (sum, s) => sum + s,
-                              0,
-                            )
-                            // Round the score
-                            score = roundToTwoDecimals(score)
-                          }
+                        {/* Dynamic content based on ranking method */}
+                        {rankingMethod === "avg-rank" ? (
+                          <>
+                            {/* Show criteria scores */}
+                            {criteria.map((criterion) => {
+                              const avgCriterionScore = avgCriteriaScores[contestant.id]?.[criterion.id] || 0
+                              const percentage =
+                                criterion.maxScore > 0 ? (avgCriterionScore / criterion.maxScore) * 100 : 0
 
-                          return (
-                            <TableCell key={`score-${judge.id}`} className="text-center align-middle">
-                              {score > 0 ? score.toFixed(2) : "-"}
+                              return (
+                                <TableCell key={criterion.id} className="text-center align-middle">
+                                  {avgCriterionScore > 0 ? avgCriterionScore.toFixed(2) : "-"}
+                                  <div className="text-xs text-muted-foreground">
+                                    ({roundToTwoDecimals(percentage).toFixed(0)}%)
+                                  </div>
+                                </TableCell>
+                              )
+                            })}
+                            <TableCell className="text-center align-middle font-medium">
+                              {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
                             </TableCell>
-                          )
-                        })}
-
-                        {/* Ranks from each judge */}
-                        {judges.map((judge) => {
-                          const rank = judgeRankings[judge.id]?.[contestant.id] || "-"
-
-                          return (
-                            <TableCell key={`rank-${judge.id}`} className="text-center align-middle">
-                              {typeof rank === "number" ? rank.toFixed(2) : rank}
+                            <TableCell className="text-center align-middle">
+                              {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
                             </TableCell>
-                          )
-                        })}
+                          </>
+                        ) : (
+                          <>
+                            {/* Raw scores for each judge */}
+                            {judges.map((judge) => {
+                              const score = judgeScores[judge.id]?.[contestant.id] || 0
+
+                              return (
+                                <TableCell key={`score-${judge.id}`} className="text-center align-middle">
+                                  {score > 0 ? score.toFixed(2) : "-"}
+                                </TableCell>
+                              )
+                            })}
+
+                            {/* Ranks from each judge */}
+                            {judges.map((judge) => {
+                              const rank = judgeRankings[judge.id]?.[contestant.id] || "-"
+
+                              return (
+                                <TableCell key={`rank-${judge.id}`} className="text-center align-middle">
+                                  {typeof rank === "number" ? rank.toFixed(2) : rank}
+                                </TableCell>
+                              )
+                            })}
+                          </>
+                        )}
 
                         {/* Average rank */}
                         <TableCell className="text-center align-middle">
@@ -208,7 +318,10 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                       {/* Expanded row with detailed criteria scores */}
                       {isExpanded && (
                         <TableRow className={`${rowClass} border-t-0`}>
-                          <TableCell colSpan={4 + judges.length * 2} className="p-0">
+                          <TableCell
+                            colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                            className="p-0"
+                          >
                             <div className="p-4 bg-muted/5 border-t border-dashed">
                               <h4 className="font-medium mb-2">Detailed Criteria Scores</h4>
                               <Table className="border-collapse">
@@ -505,7 +618,10 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4 + judges.length * 2 + 2} className="text-center py-4 text-muted-foreground">
+                  <TableCell
+                    colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                    className="text-center py-4 text-muted-foreground"
+                  >
                     No contestants in this category
                   </TableCell>
                 </TableRow>

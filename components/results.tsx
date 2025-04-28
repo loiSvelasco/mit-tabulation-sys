@@ -485,17 +485,17 @@ export function Results() {
 
       {/* Results Tabs */}
       <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
-          <TabsTrigger value="ranking-breakdown">Ranking Breakdown</TabsTrigger>
+          {/* <TabsTrigger value="ranking-breakdown">Ranking Breakdown</TabsTrigger>
           <TabsTrigger value="detailed-scores">Detailed Scores</TabsTrigger>
-          <TabsTrigger value="judge-comparison">Judge Comparison</TabsTrigger>
+          <TabsTrigger value="judge-comparison">Judge Comparison</TabsTrigger> */}
           <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
         </TabsList>
         <TabsContent value="final-rankings">
           <FinalRankings segmentId={selectedSegmentId} />
         </TabsContent>
-        <TabsContent value="ranking-breakdown">
+        {/* <TabsContent value="ranking-breakdown">
           <RankingBreakdown segmentId={selectedSegmentId} />
         </TabsContent>
         <TabsContent value="detailed-scores">
@@ -503,7 +503,7 @@ export function Results() {
         </TabsContent>
         <TabsContent value="judge-comparison">
           <JudgeComparison segmentId={selectedSegmentId} />
-        </TabsContent>
+        </TabsContent> */}
         <TabsContent value="criteria-scores">
           <CriteriaScores segmentId={selectedSegmentId} />
         </TabsContent>
