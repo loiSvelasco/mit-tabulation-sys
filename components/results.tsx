@@ -10,7 +10,7 @@ import FinalRankings from "./results/FinalRankings"
 import CriteriaScores from "./results/CriteriaScores"
 import TestScoring from "./test-scoring"
 import { Button } from "@/components/ui/button"
-import { ChevronRight, Award, RefreshCw, Clock, Shuffle } from "lucide-react"
+import { ChevronRight, Award, RefreshCw, Clock, Shuffle, Copy } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-// Modify the ContestantSequence component to include a ScrollArea
+// Modify the ContestantSequence component to include a ScrollArea and copy button
 const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
   const { contestants } = useCompetitionStore()
 
@@ -41,26 +41,65 @@ const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
     .filter((c) => c.currentSegmentId === segmentId)
     .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
 
+  // Add copy function
+  const copySequenceToClipboard = () => {
+    // Format the contestant sequence as text
+    const sequenceText = segmentContestants
+      .map((contestant, index) => `${contestant.displayOrder || index + 1}. ${contestant.name}`)
+      .join("\n")
+
+    // Copy to clipboard
+    navigator.clipboard
+      .writeText(sequenceText)
+      .then(() => {
+        toast.success("Contestant sequence copied to clipboard", {
+          description: "You can now paste it anywhere you need",
+          duration: 3000,
+        })
+      })
+      .catch((error) => {
+        console.error("Failed to copy: ", error)
+        toast.error("Failed to copy sequence", {
+          description: "Please try again or copy manually",
+          duration: 3000,
+        })
+      })
+  }
+
   return (
-    <ScrollArea className="h-[400px]">
-      <div className="space-y-1 py-1">
-        {segmentContestants.length === 0 ? (
-          <p className="text-center text-muted-foreground">No contestants in this segment</p>
-        ) : (
-          segmentContestants.map((contestant, index) => (
-            <div key={contestant.id} className="flex items-center p-1.5 border rounded-md">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2">
-                <span className="font-bold text-sm">{contestant.displayOrder || index + 1}</span>
-              </div>
-              <div>
-                <p className="font-medium text-sm">{contestant.name}</p>
-                <p className="text-xs text-muted-foreground">Display Order: {contestant.displayOrder || "Not set"}</p>
-              </div>
-            </div>
-          ))
-        )}
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={copySequenceToClipboard}
+          className="flex items-center gap-1"
+          disabled={segmentContestants.length === 0}
+        >
+          <Copy className="h-4 w-4" />
+          <span>Copy Sequence</span>
+        </Button>
       </div>
-    </ScrollArea>
+      <ScrollArea className="h-[400px]">
+        <div className="space-y-1 py-1">
+          {segmentContestants.length === 0 ? (
+            <p className="text-center text-muted-foreground">No contestants in this segment</p>
+          ) : (
+            segmentContestants.map((contestant, index) => (
+              <div key={contestant.id} className="flex items-center p-1.5 border rounded-md">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                  <span className="font-bold text-sm">{contestant.displayOrder || index + 1}</span>
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{contestant.name}</p>
+                  <p className="text-xs text-muted-foreground">Display Order: {contestant.displayOrder || "Not set"}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   )
 }
 
@@ -639,29 +678,7 @@ export function Results() {
                     <DialogHeader>
                       <DialogTitle>Contestant Sequence for {currentSegment?.name}</DialogTitle>
                     </DialogHeader>
-                    <ScrollArea className="h-[400px]">
-                      <div className="space-y-1 py-1">
-                        {currentContestants.length === 0 ? (
-                          <p className="text-center text-muted-foreground">No contestants in this segment</p>
-                        ) : (
-                          currentContestants
-                            .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
-                            .map((contestant, index) => (
-                              <div key={contestant.id} className="flex items-center p-1.5 border rounded-md">
-                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mr-2">
-                                  <span className="font-bold text-sm">{contestant.displayOrder || index + 1}</span>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm">{contestant.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Display Order: {contestant.displayOrder || "Not set"}
-                                  </p>
-                                </div>
-                              </div>
-                            ))
-                        )}
-                      </div>
-                    </ScrollArea>
+                    <ContestantSequence segmentId={selectedSegmentId} />
                   </DialogContent>
                 </Dialog>
 
