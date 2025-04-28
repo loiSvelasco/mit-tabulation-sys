@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { CriteriaAverageScores } from "@/components/CriteriaAverageScores";
 
 // Modify the ContestantSequence component to include a ScrollArea and copy button
 const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
@@ -560,7 +561,8 @@ export function Results() {
 
       {/* Debug and Test Scoring Toggles */}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
+        <CriteriaAverageScores />
+        {/* <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
         </Button>
         <Button
@@ -569,7 +571,7 @@ export function Results() {
           onClick={() => setShowTestScoring(!showTestScoring)}
         >
           {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
-        </Button>
+        </Button> */}
       </div>
 
       {showDebug && (
