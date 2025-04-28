@@ -19,7 +19,6 @@ import {
   LogOut,
   Loader2,
   ArrowRight,
-  Eye,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -59,8 +58,6 @@ export default function JudgeTerminal() {
   const [finalizationStatus, setFinalizationStatus] = useState<Record<string, boolean>>({})
   const [finalizationChecked, setFinalizationChecked] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("scoring")
-  const [showImageFullscreen, setShowImageFullscreen] = useState(false)
-
   // Track loading state to prevent flashing
   const [isInitializing, setIsInitializing] = useState(true)
 
@@ -194,8 +191,8 @@ export default function JudgeTerminal() {
 
           // If finalization status has changed from finalized to not finalized
           if (wasFinalized && !allActiveSegmentsFinalized && !isInitializing) {
-            console.log("Finalization status changed: Now allowed to edit scores")
-            toast.success("You can now edit your scores again")
+            // console.log("Finalization status changed: Now allowed to edit scores")
+            // toast.success("You can now edit your scores again")
 
             // Refresh data to get latest scores
             await refresh()
@@ -663,7 +660,12 @@ export default function JudgeTerminal() {
       const contestant = activeContestants.find((c) => c.id === selectedContestantId)
       if (!contestant || contestant.currentSegmentId !== segmentId) return false
 
-      return currentScores[segmentId]?.[selectedContestantId]?.[criterionId] === undefined
+      // Check both current scores and scores from the database
+      const hasCurrentScore = currentScores[segmentId]?.[selectedContestantId]?.[criterionId] !== undefined
+      const hasDatabaseScore =
+        judgeInfo && scores[segmentId]?.[selectedContestantId]?.[judgeInfo.id]?.[criterionId] !== undefined
+
+      return !hasCurrentScore && !hasDatabaseScore
     })
 
     if (unsavedCriteria.length > 0) {
@@ -743,9 +745,9 @@ export default function JudgeTerminal() {
         }
 
         // Show success message
-        toast.success("Your scores have been finalized successfully!", {
-          duration: 3000,
-        })
+        // toast.success("Your scores have been finalized successfully!", {
+        //   duration: 3000,
+        // })
       } catch (error) {
         console.error("Error finalizing scores:", error)
         toast.error(`Failed to save scores: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -1169,27 +1171,19 @@ export default function JudgeTerminal() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-2">
-                  {/* Contestant Image with Full Screen Viewer */}
+                  {/* Contestant Image */}
                   {currentContestant.imageUrl ? (
-                    <div className="relative w-full flex justify-center mb-2">
-                      <div className="max-h-[300px] w-full overflow-hidden rounded-md">
+                    <div className="flex justify-center mb-2">
+                      <div className="max-h-[250px] max-w-[80%] overflow-hidden rounded-md">
                         <ImageViewer
                           src={currentContestant.imageUrl || "/placeholder.svg"}
                           alt={currentContestant.name}
-                          className="max-h-[300px] w-full object-contain"
+                          className="max-h-[250px] w-auto object-contain"
                         />
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8"
-                        onClick={() => setShowImageFullscreen(true)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                     </div>
                   ) : (
-                    <div className="w-full h-[300px] rounded-md border flex items-center justify-center bg-muted mb-2">
+                    <div className="w-full h-[250px] rounded-md border flex items-center justify-center bg-muted mb-2">
                       <div className="text-center">
                         <User className="h-16 w-16 mx-auto text-muted-foreground opacity-30" />
                         <p className="text-muted-foreground mt-2">No image available</p>

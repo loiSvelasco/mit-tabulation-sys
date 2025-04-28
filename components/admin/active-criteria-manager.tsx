@@ -6,9 +6,10 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Info } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import type React from "react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 function ActiveCriteriaManager() {
   const {
@@ -17,6 +18,7 @@ function ActiveCriteriaManager() {
     toggleActiveCriterion,
     clearActiveCriteria,
     saveCompetition,
+    selectedCompetitionId,
   } = useCompetitionStore()
 
   // Local state for active criteria that won't be affected by store updates
@@ -40,7 +42,7 @@ function ActiveCriteriaManager() {
       )
       setInitialized(true)
     }
-  }, [storeActiveCriteria, initialized]) // Keep this dependency array stable
+  }, [storeActiveCriteria, initialized, competitionSettings.segments])
 
   // Check if a criterion is active in our local state
   const isActive = useCallback(
@@ -59,6 +61,44 @@ function ActiveCriteriaManager() {
     [localActiveCriteria, competitionSettings.segments],
   )
 
+  // Reset finalization status for judges for a specific segment
+  const resetFinalizationStatus = useCallback(
+    async (segmentId: string) => {
+      // Ensure we have a valid competition ID
+      if (!selectedCompetitionId) {
+        console.error("No competition ID available")
+        return false
+      }
+
+      try {
+        console.log(`Resetting finalization for competition ${selectedCompetitionId}, segment ${segmentId}`)
+
+        const response = await fetch("/api/judge/reset-finalization", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            competitionId: selectedCompetitionId,
+            segmentId,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Reset finalization error:", errorData)
+          throw new Error(errorData.message || "Failed to reset finalization status")
+        }
+
+        return true
+      } catch (error) {
+        console.error("Error resetting finalization status:", error)
+        return false
+      }
+    },
+    [selectedCompetitionId],
+  )
+
   // Toggle a criterion in our local state AND in the store
   const handleToggle = useCallback(
     async (segmentId: string, criterionId: string) => {
@@ -71,10 +111,32 @@ function ActiveCriteriaManager() {
         return
       }
 
+      // Check if we're activating (not deactivating) a criterion
+      const isCurrentlyActive = localActiveCriteria.some(
+        (ac) => ac.segmentId === segmentId && ac.criterionId === criterionId,
+      )
+
+      // If we're activating a criterion, reset judge finalization status
+      if (!isCurrentlyActive) {
+        try {
+          setIsSaving(true)
+
+          // Reset judge finalization status for this segment
+          const resetSuccess = await resetFinalizationStatus(segmentId)
+
+          if (resetSuccess) {
+            toast.success("Judge finalization status reset for this segment")
+          }
+        } catch (error) {
+          console.error("Failed to reset judge finalization status:", error)
+          toast.error("Failed to reset judge finalization status. Please try again.")
+          setIsSaving(false)
+          return
+        }
+      }
+
       // Update local state
       setLocalActiveCriteria((prev) => {
-        const isCurrentlyActive = prev.some((ac) => ac.segmentId === segmentId && ac.criterionId === criterionId)
-
         if (isCurrentlyActive) {
           // Remove if already active
           return prev.filter((ac) => !(ac.segmentId === segmentId && ac.criterionId === criterionId))
@@ -89,7 +151,6 @@ function ActiveCriteriaManager() {
 
       // Save changes to database
       try {
-        setIsSaving(true)
         await saveCompetition()
         setIsSaving(false)
       } catch (error) {
@@ -98,13 +159,22 @@ function ActiveCriteriaManager() {
         setIsSaving(false)
       }
     },
-    [toggleActiveCriterion, saveCompetition, competitionSettings.segments],
+    [
+      toggleActiveCriterion,
+      saveCompetition,
+      competitionSettings.segments,
+      localActiveCriteria,
+      resetFinalizationStatus,
+    ],
   )
 
   // Clear all active criteria in local state AND in the store
   const handleClearAll = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation()
+
+      // Get unique segment IDs from active criteria
+      const activeSegmentIds = [...new Set(localActiveCriteria.map((ac) => ac.segmentId))]
 
       // Update local state
       setLocalActiveCriteria([])
@@ -115,16 +185,31 @@ function ActiveCriteriaManager() {
       // Save changes to database
       try {
         setIsSaving(true)
+
+        // Reset finalization status for all segments that had active criteria
+        let resetSuccessCount = 0
+        for (const segmentId of activeSegmentIds) {
+          const success = await resetFinalizationStatus(segmentId)
+          if (success) resetSuccessCount++
+        }
+
         await saveCompetition()
         setIsSaving(false)
-        toast.success("All active criteria cleared and saved")
+
+        if (resetSuccessCount > 0) {
+          toast.success(
+            `All active criteria cleared and judge finalization status reset for ${resetSuccessCount} segment(s)`,
+          )
+        } else {
+          toast.success("All active criteria cleared")
+        }
       } catch (error) {
         console.error("Failed to save active criteria changes:", error)
         toast.error("Failed to save changes. Please try again.")
         setIsSaving(false)
       }
     },
-    [clearActiveCriteria, saveCompetition],
+    [clearActiveCriteria, saveCompetition, localActiveCriteria, resetFinalizationStatus],
   )
 
   const activeCount = localActiveCriteria.length
@@ -150,6 +235,21 @@ function ActiveCriteriaManager() {
         </div>
 
         <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs max-w-[250px]">
+                  Activating criteria will reset finalization status for judges, allowing them to score newly activated
+                  criteria.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button
             size="sm"
             variant="ghost"
