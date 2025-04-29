@@ -49,9 +49,9 @@ export const CarryForwardConfig = () => {
   const [scalingFactor, setScalingFactor] = useState<number>(20)
 
   // State for calculation method
-  const [calculationMethod, setCalculationMethod] = useState<"percentage" | "rawAverage" | "accumulatedPoints">(
-    "rawAverage",
-  )
+  const [calculationMethod, setCalculationMethod] = useState<
+    "percentage" | "rawAverage" | "accumulatedPoints" | "combinedPercentage"
+  >("rawAverage")
 
   // State for calculated preview scores
   const [previewScores, setPreviewScores] = useState<
@@ -165,12 +165,68 @@ export const CarryForwardConfig = () => {
         // For raw average, just use the average directly
         finalScore = rawAverage
       } else if (calculationMethod === "percentage") {
-        // For percentage, apply the scaling factor to the average
-        finalScore = rawAverage * (scalingFactor / 100)
+        // Calculate total possible points across all source segments
+        let totalPossiblePoints = 0
+        sourceSegments.forEach((segmentId) => {
+          const segment = competitionSettings.segments.find((s) => s.id === segmentId)
+          if (segment) {
+            segment.criteria.forEach((criterion) => {
+              totalPossiblePoints += criterion.maxScore
+            })
+          }
+        })
+
+        // Calculate percentage of total possible points, then apply scaling factor
+        if (totalPossiblePoints > 0) {
+          const percentageOfTotal = (rawAverage / totalPossiblePoints) * 100
+          finalScore = (percentageOfTotal / 100) * (selectedCriterion.maxScore * (scalingFactor / 100))
+        } else {
+          // Fallback to simple percentage if no max points available
+          finalScore = rawAverage * (scalingFactor / 100)
+        }
       } else if (calculationMethod === "accumulatedPoints") {
-        // For accumulated points, sum all judge scores and apply scaling factor
+        // For accumulated points, sum all judge scores
         const totalAccumulatedPoints = Object.values(judgeScoresMap).reduce((sum, score) => sum + score, 0)
-        finalScore = totalAccumulatedPoints * (scalingFactor / 100)
+
+        // Calculate total possible points across all source segments
+        let totalPossiblePoints = 0
+        sourceSegments.forEach((segmentId) => {
+          const segment = competitionSettings.segments.find((s) => s.id === segmentId)
+          if (segment) {
+            segment.criteria.forEach((criterion) => {
+              totalPossiblePoints += criterion.maxScore
+            })
+          }
+        })
+
+        if (totalPossiblePoints > 0) {
+          // Calculate percentage of total possible points, then apply scaling factor
+          const percentageOfTotal = (totalAccumulatedPoints / totalPossiblePoints) * 100
+          finalScore = (percentageOfTotal / 100) * (selectedCriterion.maxScore * (scalingFactor / 100))
+        } else {
+          // Fallback to simple scaling if no max points available
+          finalScore = totalAccumulatedPoints * (scalingFactor / 100)
+        }
+      } else if (calculationMethod === "combinedPercentage") {
+        // Calculate total possible points across all source segments
+        let totalPossiblePoints = 0
+        sourceSegments.forEach((segmentId) => {
+          const segment = competitionSettings.segments.find((s) => s.id === segmentId)
+          if (segment) {
+            segment.criteria.forEach((criterion) => {
+              totalPossiblePoints += criterion.maxScore
+            })
+          }
+        })
+
+        if (totalPossiblePoints > 0) {
+          // Calculate percentage of total possible points, then apply to criterion's max score
+          const percentageOfTotal = (rawAverage / totalPossiblePoints) * 100
+          finalScore = (percentageOfTotal / 100) * selectedCriterion.maxScore
+        } else {
+          // Fallback to raw average if no max points available
+          finalScore = rawAverage
+        }
       }
 
       // Round to 2 decimal places
@@ -340,7 +396,9 @@ export const CarryForwardConfig = () => {
                         <RadioGroup
                           value={calculationMethod}
                           onValueChange={(value) =>
-                            setCalculationMethod(value as "percentage" | "rawAverage" | "accumulatedPoints")
+                            setCalculationMethod(
+                              value as "percentage" | "rawAverage" | "accumulatedPoints" | "combinedPercentage",
+                            )
                           }
                           className="space-y-2"
                         >
@@ -370,8 +428,10 @@ export const CarryForwardConfig = () => {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p className="max-w-xs">
-                                    Takes the average of each judge's total scores and applies the scaling factor to get
-                                    the final score.
+                                    Calculates the percentage of maximum possible points from the average scores, then
+                                    applies the scaling factor to the criterion's max score. For example, if average
+                                    score is 79.56 out of 130 possible points, that's 61.2%, and with 20% scaling factor
+                                    applied to a 20-point criterion, the final score would be 2.45.
                                   </p>
                                 </TooltipContent>
                               </Tooltip>
@@ -387,8 +447,28 @@ export const CarryForwardConfig = () => {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p className="max-w-xs">
-                                    Takes the total accumulated points across all judges and applies the scaling factor
-                                    to get the final score.
+                                    Calculates the percentage of maximum possible points from the total accumulated
+                                    points, then applies the scaling factor. For example, if total points are 102.13 out
+                                    of 130 possible points, that's 78.56%, and with 20% scaling factor, the final score
+                                    would be 15.71.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="combinedPercentage" id="combinedPercentage" />
+                            <Label htmlFor="combinedPercentage">Combined Percentage</Label>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-xs">
+                                    Calculates the percentage of total possible points across all selected segments,
+                                    then applies that percentage to this criterion's max score. Ideal for final
+                                    rankings.
                                   </p>
                                 </TooltipContent>
                               </Tooltip>
