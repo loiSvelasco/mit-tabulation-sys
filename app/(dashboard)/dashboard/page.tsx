@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import EnhancedJudgeScoring from "@/components/judge-scoring"
+import { ResetScoresButton } from "@/components/admin/ResetScoresButton"
 // import { SyncJudgesButton } from "@/components/admin/sync-judges-button"
 
 interface Competition {
@@ -297,6 +298,8 @@ const Dashboard = () => {
                 </>
               )}
             </Button>
+
+            <ResetScoresButton />
 
             <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
               <Save size={16} />

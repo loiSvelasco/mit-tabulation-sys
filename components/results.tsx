@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CriteriaAverageScores } from "@/components/CriteriaAverageScores";
+import { MinorAwardsCalculator } from "./results/MinorAwardsCalculator"
 
 // Modify the ContestantSequence component to include a ScrollArea and copy button
 const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
@@ -770,15 +771,19 @@ export function Results() {
 
       {/* Results Tabs */}
       <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
           <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
+          <TabsTrigger value="minor-awards">Minor Awards</TabsTrigger>
         </TabsList>
         <TabsContent value="final-rankings">
           <FinalRankings segmentId={selectedSegmentId} />
         </TabsContent>
         <TabsContent value="criteria-scores">
           <CriteriaScores segmentId={selectedSegmentId} />
+        </TabsContent>
+        <TabsContent value="minor-awards">
+          <MinorAwardsCalculator />
         </TabsContent>
       </Tabs>
     </div>

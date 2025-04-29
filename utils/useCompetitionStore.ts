@@ -135,6 +135,8 @@ interface CompetitionState {
   toggleActiveCriterion: (segmentId: string, criterionId: string) => void
   isActiveCriterion: (segmentId: string, criterionId: string) => boolean
   clearActiveCriteria: () => void
+  // reset scores
+  resetScores: () => Promise<void>
 }
 
 // Function to apply pre-judged scores to all judges
@@ -968,6 +970,80 @@ const useCompetitionStore = create<CompetitionState>((set, get) => ({
 
   clearActiveCriteria: () => {
     set({ activeCriteria: [] })
+  },
+
+  // Add this to your store implementation
+  resetScores: async () => {
+    try {
+      const competitionId = get().selectedCompetitionId
+      if (!competitionId) return
+
+      // Call API to reset scores in the database
+      const response = await fetch('/api/scores/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competitionId })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to reset scores')
+      }
+
+      // Get all segments and identify pre-judged criteria
+      const segments = get().competitionSettings.segments
+      const prejudgedCriteria = segments.flatMap((segment) =>
+        segment.criteria
+          .filter((criterion) => criterion.isPrejudged)
+          .map((criterion) => ({
+            segmentId: segment.id,
+            criterionId: criterion.id,
+          })),
+      )
+
+      // Create a new scores object with only pre-judged scores
+      const currentScores = get().scores
+      const newScores = {} as Record<string, Record<string, Record<string, Record<string, number>>>>
+
+      // For each segment
+      Object.keys(currentScores).forEach((segmentId) => {
+        // Check if this segment has any pre-judged criteria
+        const segmentPrejudgedCriteria = prejudgedCriteria
+          .filter((c) => c.segmentId === segmentId)
+          .map((c) => c.criterionId)
+
+        if (segmentPrejudgedCriteria.length > 0) {
+          // Initialize segment if it has pre-judged criteria
+          newScores[segmentId] = {}
+
+          // For each contestant in this segment
+          Object.keys(currentScores[segmentId] || {}).forEach((contestantId) => {
+            newScores[segmentId][contestantId] = {}
+
+            // For each judge
+            Object.keys(currentScores[segmentId][contestantId] || {}).forEach((judgeId) => {
+              newScores[segmentId][contestantId][judgeId] = {}
+
+              // Only keep pre-judged criteria scores
+              segmentPrejudgedCriteria.forEach((criterionId) => {
+                if (currentScores[segmentId]?.[contestantId]?.[judgeId]?.[criterionId] !== undefined) {
+                  newScores[segmentId][contestantId][judgeId][criterionId] =
+                    currentScores[segmentId][contestantId][judgeId][criterionId]
+                }
+              })
+            })
+          })
+        }
+      })
+
+      // Update state with new scores
+      set({ scores: newScores })
+
+      return
+    } catch (error) {
+      console.error("Error resetting scores:", error)
+      throw error
+    }
   },
 }))
 
