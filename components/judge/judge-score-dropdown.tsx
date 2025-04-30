@@ -12,7 +12,7 @@ interface JudgeScoreDropdownProps {
 export function JudgeScoreDropdown({ maxScore, increment = 0.25, value, onChange }: JudgeScoreDropdownProps) {
   // Generate score options from 0 to maxScore with the specified increment
   const scoreOptions: number[] = []
-  for (let score = 0; score <= maxScore; score += increment) {
+  for (let score = maxScore / 2; score <= maxScore; score += increment) {
     scoreOptions.push(Number(score.toFixed(2))) // Fix floating point precision issues
   }
 

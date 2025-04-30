@@ -60,6 +60,10 @@ export default function JudgeTerminal() {
   const [activeTab, setActiveTab] = useState<string>("scoring")
   // Track loading state to prevent flashing
   const [isInitializing, setIsInitializing] = useState(true)
+  // Track dropdown state
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const dropdownButtonRef = useRef<HTMLDivElement>(null)
 
   // Refs to prevent unnecessary re-fetches
   const dataLoadedRef = useRef(false)
@@ -105,6 +109,30 @@ export default function JudgeTerminal() {
   // Track scores for the current criteria
   const [currentScores, setCurrentScores] = useState<Record<string, Record<string, number>>>({})
   const [savedContestants, setSavedContestants] = useState<Set<string>>(new Set())
+
+  // Handle clicks outside the dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        dropdownButtonRef.current &&
+        !dropdownButtonRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false)
+      }
+    }
+
+    // Add event listener when dropdown is open
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+
+    // Clean up
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [dropdownOpen])
 
   // Check if current contestant is the last one
   const isLastContestant = selectedContestantId
@@ -1219,7 +1247,7 @@ export default function JudgeTerminal() {
           </Button>
 
           <div className="text-center">
-            <h2 className="text-lg font-medium">
+            <h2 className="text-2xl font-medium">
               Contestant{" "}
               {currentContestant
                 ? currentContestant.displayOrder ||
@@ -1254,8 +1282,47 @@ export default function JudgeTerminal() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between">
-                    <span>{currentContestant.name}</span>
-                    {currentSegment && <Badge variant="outline">{currentSegment.name}</Badge>}
+                    <span className="uppercase text-xl">{currentContestant.name}</span>
+                    {currentSegment && (
+                      <div className="flex items-center gap-1 relative group" ref={dropdownButtonRef}>
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDropdownOpen(!dropdownOpen)
+                          }}
+                        >
+                          Select
+                          <ChevronRight className="h-3 w-3 rotate-90 ml-1" />
+                        </Badge>
+                        {dropdownOpen && (
+                          <div
+                            ref={dropdownRef}
+                            className="absolute right-0 top-full mt-1 z-50 bg-white rounded-md shadow-md border border-gray-200 max-h-48 overflow-y-auto w-48"
+                          >
+                            {currentContestant &&
+                              activeContestants
+                                .filter((c) => c.currentSegmentId === currentContestant.currentSegmentId)
+                                .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
+                                .map((contestant) => (
+                                  <button
+                                    key={contestant.id}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                                      contestant.id === selectedContestantId ? "bg-gray-50 font-medium" : ""
+                                    }`}
+                                    onClick={() => {
+                                      setSelectedContestantId(contestant.id)
+                                      setDropdownOpen(false)
+                                    }}
+                                  >
+                                    {contestant.name}
+                                  </button>
+                                ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     <div className="flex items-center gap-2 mt-1">

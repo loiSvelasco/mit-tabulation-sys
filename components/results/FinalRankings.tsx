@@ -151,7 +151,18 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 </TableHead>
 
                 {/* Dynamic header based on ranking method */}
-                {rankingMethod === "avg-rank" ? (
+                {rankingMethod === "custom" ? (
+                  <>
+                    {/* Show criteria columns for custom formula */}
+                    {criteria.map((criterion) => (
+                      <TableHead key={criterion.id} className="text-center bg-muted">
+                        {criterion.name}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center bg-muted">Max Score</TableHead>
+                    <TableHead className="text-center bg-muted">Rank</TableHead>
+                  </>
+                ) : rankingMethod === "avg-rank" ? (
                   <>
                     {/* Show criteria columns */}
                     {criteria.map((criterion) => (
@@ -187,7 +198,18 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 <TableHead className="bg-muted"></TableHead>
 
                 {/* Dynamic subheader based on ranking method */}
-                {rankingMethod === "avg-rank" ? (
+                {rankingMethod === "custom" ? (
+                  <>
+                    {/* Subheaders for criteria columns */}
+                    {criteria.map((criterion) => (
+                      <TableHead key={`sub-${criterion.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                        (max: {criterion.maxScore})
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Value</TableHead>
+                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Position</TableHead>
+                  </>
+                ) : rankingMethod === "avg-rank" ? (
                   <>
                     {/* Subheaders for criteria columns */}
                     {criteria.map((criterion) => (
@@ -245,7 +267,31 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                         </TableCell>
 
                         {/* Dynamic content based on ranking method */}
-                        {rankingMethod === "avg-rank" ? (
+                        {rankingMethod === "custom" ? (
+                          <>
+                            {/* Show criteria scores */}
+                            {criteria.map((criterion) => {
+                              const avgCriterionScore = avgCriteriaScores[contestant.id]?.[criterion.id] || 0
+                              const percentage =
+                                criterion.maxScore > 0 ? (avgCriterionScore / criterion.maxScore) * 100 : 0
+
+                              return (
+                                <TableCell key={criterion.id} className="text-center align-middle">
+                                  {avgCriterionScore > 0 ? avgCriterionScore.toFixed(2) : "-"}
+                                  <div className="text-xs text-muted-foreground">
+                                    ({roundToTwoDecimals(percentage).toFixed(0)}%)
+                                  </div>
+                                </TableCell>
+                              )
+                            })}
+                            <TableCell className="text-center align-middle font-medium">
+                              {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
+                            </TableCell>
+                            <TableCell className="text-center align-middle">
+                              {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                            </TableCell>
+                          </>
+                        ) : rankingMethod === "avg-rank" ? (
                           <>
                             {/* Show criteria scores */}
                             {criteria.map((criterion) => {
@@ -319,7 +365,11 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                       {isExpanded && (
                         <TableRow className={`${rowClass} border-t-0`}>
                           <TableCell
-                            colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                            colSpan={
+                              rankingMethod === "custom" || rankingMethod === "avg-rank"
+                                ? criteria.length + 6
+                                : 4 + judges.length * 2
+                            }
                             className="p-0"
                           >
                             <div className="p-4 bg-muted/5 border-t border-dashed">
@@ -619,7 +669,11 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                    colSpan={
+                      rankingMethod === "custom" || rankingMethod === "avg-rank"
+                        ? criteria.length + 6
+                        : 4 + judges.length * 2
+                    }
                     className="text-center py-4 text-muted-foreground"
                   >
                     No contestants in this category

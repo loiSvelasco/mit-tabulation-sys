@@ -47,7 +47,8 @@ const ContestantSequence = ({ segmentId }: { segmentId: string }) => {
   const copySequenceToClipboard = () => {
     // Format the contestant sequence as text
     const sequenceText = segmentContestants
-      .map((contestant, index) => `${contestant.displayOrder || index + 1}. ${contestant.name}`)
+      // .map((contestant, index) => `${contestant.displayOrder || index + 1}. ${contestant.name}`)
+      .map((contestant, index) => `${contestant.name}`)
       .join("\n")
 
     // Copy to clipboard
