@@ -1,147 +1,318 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { Input } from "@/components/ui/input"
+import { ChevronDown, Loader2, RotateCcw, ArrowLeft, Trash2, RefreshCw } from "lucide-react"
 
 export function ResetScoresButton() {
-  const [open, setOpen] = useState(false)
-  const [isResetting, setIsResetting] = useState(false)
-  const [confirmStep, setConfirmStep] = useState(1) // Track confirmation step
+  const [showDialog, setShowDialog] = useState(false)
+  const [dialogType, setDialogType] = useState<"move" | "reset" | "resetAll" | null>(null)
+  const [isConfirmStep, setIsConfirmStep] = useState(false)
   const [confirmText, setConfirmText] = useState("")
-  const { selectedCompetitionId, resetScores } = useCompetitionStore()
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  const handleInitialConfirm = (e) => {
-    e.preventDefault() // Prevent form submission
-    setConfirmStep(2) // Move to second step
+  const resetScores = useCompetitionStore((state) => state.resetScores)
+  const contestants = useCompetitionStore((state) => state.contestants)
+  const updateContestantSegment = useCompetitionStore((state) => state.updateContestantSegment)
+  const competitionSettings = useCompetitionStore((state) => state.competitionSettings)
+  const saveCompetition = useCompetitionStore((state) => state.saveCompetition)
+
+  // Fix for pointer-events issue
+  useEffect(() => {
+    if (!showDialog) {
+      // Small delay to ensure dialog is fully closed
+      const timer = setTimeout(() => {
+        // Reset any pointer-events that might be stuck
+        document.body.style.pointerEvents = ""
+
+        // Find and remove any lingering overlay elements
+        const overlays = document.querySelectorAll('[data-state="closed"][role="dialog"]')
+        overlays.forEach((overlay) => {
+          if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay)
+          }
+        })
+      }, 100)
+
+      return () => clearTimeout(timer)
+    }
+  }, [showDialog])
+
+  const openDialog = (type: "move" | "reset" | "resetAll") => {
+    setDialogType(type)
+    setIsConfirmStep(false)
+    setConfirmText("")
+    setShowDialog(true)
   }
 
-  const handleResetScores = async (e) => {
-    e.preventDefault() // Prevent form submission
-    
-    if (!selectedCompetitionId) {
-      toast.error("No competition selected")
+  const closeDialog = () => {
+    setShowDialog(false)
+    setDialogType(null)
+    setIsConfirmStep(false)
+    setConfirmText("")
+    setIsProcessing(false)
+  }
+
+  const proceedToConfirmStep = () => {
+    setIsConfirmStep(true)
+  }
+
+  const handleMoveToFirstSegment = async () => {
+    try {
+      setIsProcessing(true)
+
+      // Get the first segment ID
+      const firstSegmentId = competitionSettings.segments[0]?.id
+
+      if (!firstSegmentId) {
+        throw new Error("No segments found")
+      }
+
+      // Move all contestants to the first segment
+      for (const contestant of contestants) {
+        updateContestantSegment(contestant.id, firstSegmentId)
+      }
+
+      // Save the competition state
+      await saveCompetition()
+
+      toast.success("Contestants Moved", {
+        description: "All contestants have been moved to the first segment.",
+      })
+    } catch (error) {
+      console.error("Failed to move contestants:", error)
+      toast.error("Error", {
+        description: "Failed to move contestants. Please try again.",
+      })
+    } finally {
+      setIsProcessing(false)
+      closeDialog()
+    }
+  }
+
+  const handleResetScores = async () => {
+    try {
+      setIsProcessing(true)
+      await resetScores()
+      await saveCompetition()
+      toast.success("Scores Reset", {
+        description: "All non-prejudged scores have been reset.",
+      })
+    } catch (error) {
+      console.error("Failed to reset scores:", error)
+      toast.error("Error", {
+        description: "Failed to reset scores. Please try again.",
+      })
+    } finally {
+      setIsProcessing(false)
+      closeDialog()
+    }
+  }
+
+  const handleResetAllScores = async () => {
+    try {
+      setIsProcessing(true)
+
+      // Create an empty scores object to replace the current one
+      const emptyScores = {}
+
+      // Set the scores to the empty object
+      useCompetitionStore.setState({ scores: emptyScores })
+
+      // Save the competition state
+      await saveCompetition()
+
+      toast.success("All Scores Reset", {
+        description: "All scores including prejudged scores have been completely reset.",
+      })
+    } catch (error) {
+      console.error("Failed to reset all scores:", error)
+      toast.error("Error", {
+        description: "Failed to reset all scores. Please try again.",
+      })
+    } finally {
+      setIsProcessing(false)
+      closeDialog()
+    }
+  }
+
+  const handleAction = () => {
+    if (dialogType === "move") {
+      return handleMoveToFirstSegment()
+    }
+
+    if (!isConfirmStep) {
+      return proceedToConfirmStep()
+    }
+
+    if (confirmText !== "RESET") {
+      toast.error("Incorrect confirmation", {
+        description: "Please type RESET to confirm this action.",
+      })
       return
     }
 
-    try {
-      setIsResetting(true)
+    if (dialogType === "reset") {
+      return handleResetScores()
+    }
 
-      // Call the API to reset scores
-      const response = await fetch("/api/scores/reset", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ competitionId: selectedCompetitionId }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to reset scores")
-      }
-
-      // Update local state
-      await resetScores()
-
-      toast.success("All non-pre-judged scores have been reset successfully.", {
-        description: "Scores Reset",
-      })
-
-      // Reset and close dialog
-      resetDialog()
-    } catch (error) {
-      console.error("Error resetting scores:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to reset scores", {
-        description: "Error",
-      })
-    } finally {
-      setIsResetting(false)
+    if (dialogType === "resetAll") {
+      return handleResetAllScores()
     }
   }
 
-  const resetDialog = () => {
-    setOpen(false)
-    setConfirmStep(1)
-    setConfirmText("")
+  const getDialogContent = () => {
+    if (!dialogType) return null
+
+    if (dialogType === "move") {
+      return {
+        title: "Move All Contestants",
+        description: "This will move all contestants to the first segment. This action cannot be undone.",
+        showInput: false,
+        actionText: "Move Contestants",
+        actionClass: "",
+      }
+    }
+
+    if (dialogType === "reset") {
+      if (isConfirmStep) {
+        return {
+          title: "Confirm Reset",
+          description: "Type RESET to confirm deleting all non-prejudged scores. This action cannot be undone.",
+          showInput: true,
+          actionText: "Confirm Reset",
+          actionClass: "",
+        }
+      }
+
+      return {
+        title: "Reset Regular Scores",
+        description: "This will delete all scores except pre-judged scores. This action cannot be undone.",
+        showInput: false,
+        actionText: "Continue",
+        actionClass: "",
+      }
+    }
+
+    if (dialogType === "resetAll") {
+      if (isConfirmStep) {
+        return {
+          title: "Confirm Reset ALL",
+          description:
+            "Type RESET to confirm deleting ALL scores including prejudged scores. This action cannot be undone.",
+          showInput: true,
+          actionText: "Confirm Reset ALL",
+          actionClass: "bg-red-600 hover:bg-red-700",
+        }
+      }
+
+      return {
+        title: "Reset ALL Scores",
+        description: "This will delete ALL scores including prejudged scores. This action cannot be undone.",
+        showInput: false,
+        actionText: "Continue",
+        actionClass: "",
+      }
+    }
+
+    return null
   }
 
-  const isConfirmButtonDisabled = confirmStep === 2 && confirmText !== "RESET"
+  const content = getDialogContent()
 
   return (
     <>
-      <Button variant="destructive" onClick={() => setOpen(true)} className="ml-auto">
-        Reset Scores
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reset
+            <ChevronDown className="ml-1 h-3 w-3 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => openDialog("move")} className="flex items-center">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            <span>Move All to First Segment</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => openDialog("reset")} className="flex items-center text-amber-600">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            <span>Reset Regular Scores</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openDialog("resetAll")} className="flex items-center text-red-600">
+            <Trash2 className="mr-2 h-4 w-4" />
+            <span>Reset ALL Scores</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <AlertDialog open={open} onOpenChange={resetDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset Competition Scores</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will delete all scores for this competition except pre-judged scores. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {confirmStep === 2 ? (
-            <>
-              <div className="py-3">
-                <p className="mb-2 text-sm font-medium">
-                  Type <span className="font-bold">RESET</span> to confirm:
-                </p>
-                <Input
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                  placeholder="RESET"
-                  className="border-destructive/50 focus-visible:ring-destructive/30"
-                />
-              </div>
-              <AlertDialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setConfirmStep(1)} 
-                  disabled={isResetting}
-                >
-                  Back
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleResetScores}
-                  disabled={isResetting || isConfirmButtonDisabled}
-                >
-                  {isResetting ? "Resetting..." : "Confirm Reset"}
-                </Button>
-              </AlertDialogFooter>
-            </>
-          ) : (
-            <AlertDialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={resetDialog}
-                disabled={isResetting}
-              >
+      {content && (
+        <Dialog
+          open={showDialog}
+          onOpenChange={(open) => {
+            if (!open) closeDialog()
+          }}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>{content.title}</DialogTitle>
+              <DialogDescription>{content.description}</DialogDescription>
+              {content.showInput && (
+                <div className="mt-4">
+                  <Input
+                    placeholder="Type RESET to confirm"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    className="mt-2"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog} disabled={isProcessing}>
                 Cancel
               </Button>
               <Button
-                variant="destructive"
-                onClick={handleInitialConfirm}
+                onClick={handleAction}
+                disabled={isProcessing || (content.showInput && confirmText !== "RESET")}
+                className={content.actionClass}
               >
-                Continue
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  content.actionText
+                )}
               </Button>
-            </AlertDialogFooter>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

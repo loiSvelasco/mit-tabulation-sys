@@ -513,12 +513,12 @@ export function Results() {
           )}
           {error && <span className="text-red-500 ml-2">{error}</span>}
           <div className="ml-auto flex gap-2">
-            <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
+            {/* <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
               {isPolling ? "Pause Updates" : "Resume Updates"}
             </Button>
             <Button size="sm" variant="outline" onClick={manualRefresh}>
               <RefreshCw className="h-3 w-3 mr-1" /> Refresh Now
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -564,7 +564,7 @@ export function Results() {
       {/* Debug and Test Scoring Toggles */}
       <div className="flex justify-end gap-2">
         <CriteriaAverageScores />
-        <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
+        {/* <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
         </Button>
         <Button
@@ -573,7 +573,7 @@ export function Results() {
           onClick={() => setShowTestScoring(!showTestScoring)}
         >
           {showTestScoring ? "Hide Test Scoring" : "Show Test Scoring"}
-        </Button>
+        </Button> */}
       </div>
 
       {showDebug && (
@@ -695,7 +695,7 @@ export function Results() {
                       title="Reset display order for debugging"
                     >
                       <RefreshCw className="h-4 w-4" />
-                      Reset Display Order
+                      {/* Reset Display Order */}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>

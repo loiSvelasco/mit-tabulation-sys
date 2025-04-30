@@ -308,17 +308,23 @@ const Dashboard = () => {
 
             {/* {selectedCompetition && <SyncJudgesButton competitionId={selectedCompetition} />} */}
 
-            <Button asChild>
+            {/* <Button asChild>
               <Link href="/judge">
                 <LaptopMinimalCheck className="mr-2 h-4 w-4" /> View Judge Dashboard
               </Link>
+            </Button> */}
+
+            <Button asChild>
+              <Link href="/dashboard/monitor-scoring" target="_blank">
+                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Monitoring of Scores
+              </Link>
             </Button>
 
-            {selectedCompetition && (
+            {/* {selectedCompetition && (
               <Button variant="outline" onClick={handleOpenPublicDisplay} className="flex items-center gap-2">
                 <Tv2 className="h-4 w-4 mr-2" /> Public Display
               </Button>
-            )}
+            )} */}
           </div>
         </div>
 

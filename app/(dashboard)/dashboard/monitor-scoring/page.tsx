@@ -880,13 +880,13 @@ export default function MonitorScoring() {
               Last update: {lastUpdate.toLocaleTimeString()}
             </Badge>
           )}
-          <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
+          {/* <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
             {isPolling ? "Pause Updates" : "Resume Updates"}
           </Button>
           <Button size="sm" variant="outline" onClick={handleManualRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh Now
-          </Button>
+          </Button> */}
         </div>
       </div>
 
