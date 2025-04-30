@@ -993,15 +993,22 @@ export default function JudgeTerminal() {
                 <Trophy className="h-5 w-5" />
                 <h1 className="text-xl font-bold">{competitionName}</h1>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="flex items-center gap-1 bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-              >
-                <LogOut size={16} />
-                <span>Logout</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                {judgeInfo && (
+                  <Badge variant="secondary" className="bg-primary-foreground text-primary mr-2">
+                    <User className="h-3 w-3 mr-1" /> Welcome, {judgeInfo.name}
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </Button>
+              </div>
             </div>
           </div>
         </header>
@@ -1046,6 +1053,11 @@ export default function JudgeTerminal() {
                 <h1 className="text-xl font-bold">{competitionName}</h1>
               </div>
               <div className="flex items-center gap-2">
+                {judgeInfo && (
+                  <Badge variant="secondary" className="bg-primary-foreground text-primary">
+                    <User className="h-3 w-3 mr-1" /> Welcome, {judgeInfo.name}
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
                   <CheckCircle2 className="h-3 w-3 mr-1" /> Scores Finalized
                 </Badge>
@@ -1193,6 +1205,11 @@ export default function JudgeTerminal() {
               <h1 className="text-xl font-bold">{competitionName}</h1>
             </div>
             <div className="flex items-center gap-2">
+              {judgeInfo && (
+                <Badge variant="secondary" className="bg-primary-foreground text-primary">
+                  <User className="h-3 w-3 mr-1" /> Welcome, {judgeInfo.name}
+                </Badge>
+              )}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1247,7 +1264,7 @@ export default function JudgeTerminal() {
           </Button>
 
           <div className="text-center">
-            <h2 className="text-2xl font-medium">
+            <h2 className="text-lg font-medium">
               Contestant{" "}
               {currentContestant
                 ? currentContestant.displayOrder ||
@@ -1282,7 +1299,7 @@ export default function JudgeTerminal() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between">
-                    <span className="uppercase text-xl">{currentContestant.name}</span>
+                    <span className="uppercase">{currentContestant.name}</span>
                     {currentSegment && (
                       <div className="flex items-center gap-1 relative group" ref={dropdownButtonRef}>
                         <Badge
@@ -1293,7 +1310,7 @@ export default function JudgeTerminal() {
                             setDropdownOpen(!dropdownOpen)
                           }}
                         >
-                          Select
+                          SELECT
                           <ChevronRight className="h-3 w-3 rotate-90 ml-1" />
                         </Badge>
                         {dropdownOpen && (
