@@ -10,72 +10,136 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { ChevronDown, Loader2, RotateCcw, ArrowLeft, Trash2, RefreshCw } from "lucide-react"
+import { Loader2, RotateCcw } from "lucide-react"
 
 export function ResetScoresButton() {
   const [showDialog, setShowDialog] = useState(false)
-  const [dialogType, setDialogType] = useState<"move" | "reset" | "resetAll" | null>(null)
   const [isConfirmStep, setIsConfirmStep] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [preservePrejudged, setPreservePrejudged] = useState(true)
 
   const resetScores = useCompetitionStore((state) => state.resetScores)
   const contestants = useCompetitionStore((state) => state.contestants)
   const updateContestantSegment = useCompetitionStore((state) => state.updateContestantSegment)
+  const updateContestantDisplayOrder = useCompetitionStore((state) => state.updateContestantDisplayOrder)
   const competitionSettings = useCompetitionStore((state) => state.competitionSettings)
   const saveCompetition = useCompetitionStore((state) => state.saveCompetition)
+  const selectedCompetitionId = useCompetitionStore((state) => state.selectedCompetitionId)
+  const loadScores = useCompetitionStore((state) => state.loadScores)
 
-  // Fix for pointer-events issue
+  // Replace the entire useEffect hook with this improved version
   useEffect(() => {
+    // Only run cleanup when dialog is closed
     if (!showDialog) {
-      // Small delay to ensure dialog is fully closed
+      // Use a more reliable approach to clean up the DOM
+      // This will run after the dialog has fully closed
       const timer = setTimeout(() => {
-        // Reset any pointer-events that might be stuck
-        document.body.style.pointerEvents = ""
-
-        // Find and remove any lingering overlay elements
-        const overlays = document.querySelectorAll('[data-state="closed"][role="dialog"]')
-        overlays.forEach((overlay) => {
-          if (overlay.parentNode) {
-            overlay.parentNode.removeChild(overlay)
+        // Find any lingering dialog elements and remove them properly
+        document.querySelectorAll('[role="dialog"][data-state="closed"]').forEach((element) => {
+          // Only attempt to remove if the element is still in the DOM
+          if (element.parentNode && document.body.contains(element)) {
+            element.parentNode.removeChild(element)
           }
         })
-      }, 100)
+
+        // Reset any stuck backdrop or pointer-events
+        document.body.style.pointerEvents = ""
+
+        // Remove any lingering backdrop elements
+        document.querySelectorAll("[data-radix-portal-root]").forEach((element) => {
+          if (element.childElementCount === 0 && element.parentNode) {
+            element.parentNode.removeChild(element)
+          }
+        })
+      }, 300) // Increased timeout to ensure dialog animation completes
 
       return () => clearTimeout(timer)
     }
   }, [showDialog])
 
-  const openDialog = (type: "move" | "reset" | "resetAll") => {
-    setDialogType(type)
+  const openDialog = () => {
     setIsConfirmStep(false)
     setConfirmText("")
+    setPreservePrejudged(true)
     setShowDialog(true)
   }
 
+  // Replace the closeDialog function with this improved version
   const closeDialog = () => {
-    setShowDialog(false)
-    setDialogType(null)
-    setIsConfirmStep(false)
-    setConfirmText("")
+    // First set processing to false to disable any buttons
     setIsProcessing(false)
+
+    // Then close the dialog
+    setShowDialog(false)
+
+    // Reset state after a short delay to ensure dialog is closed first
+    setTimeout(() => {
+      setIsConfirmStep(false)
+      setConfirmText("")
+    }, 100)
   }
 
   const proceedToConfirmStep = () => {
     setIsConfirmStep(true)
   }
 
-  const handleMoveToFirstSegment = async () => {
+  // Function to reset display order for contestants in a segment
+  const resetDisplayOrderForSegment = async (segmentId) => {
+    try {
+      // Get contestants in the segment
+      const segmentContestants = contestants.filter((c) => c.currentSegmentId === segmentId)
+
+      // Sort them by ID to have a consistent order
+      const sortedContestants = [...segmentContestants].sort((a, b) => Number.parseInt(a.id) - Number.parseInt(b.id))
+
+      // Assign sequential display orders (1, 2, 3...)
+      sortedContestants.forEach((contestant, index) => {
+        updateContestantDisplayOrder(contestant.id, index + 1)
+      })
+
+      // Get segment name for the toast message
+      const segmentName = competitionSettings.segments.find((s) => s.id === segmentId)?.name || "segment"
+
+      toast.success(`Reset display order for ${sortedContestants.length} contestants in ${segmentName}`)
+    } catch (error) {
+      console.error("Error resetting display order:", error)
+      toast.error("Failed to reset display order. Please try again.")
+    }
+  }
+
+  // Function to reset scores in the database
+  const resetScoresInDatabase = async (preservePrejudged = true) => {
+    if (!selectedCompetitionId) {
+      throw new Error("No competition selected")
+    }
+
+    // Call the API to reset scores
+    const response = await fetch("/api/scores/reset", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        competitionId: selectedCompetitionId,
+        preservePrejudged, // If true, preserve prejudged scores; if false, delete all scores
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || "Failed to reset scores in database")
+    }
+
+    return await response.json().catch(() => ({}))
+  }
+
+  const handleInitialize = async () => {
     try {
       setIsProcessing(true)
 
@@ -86,67 +150,44 @@ export function ResetScoresButton() {
         throw new Error("No segments found")
       }
 
-      // Move all contestants to the first segment
+      // 1. Move all contestants to the first segment
       for (const contestant of contestants) {
         updateContestantSegment(contestant.id, firstSegmentId)
       }
 
-      // Save the competition state
+      // 2. Reset display order for contestants in the first segment
+      await resetDisplayOrderForSegment(firstSegmentId)
+
+      // 3. Reset scores based on the preservePrejudged setting
+      if (preservePrejudged) {
+        // Reset scores in the Zustand store (preserving prejudged)
+        await resetScores()
+        // Reset scores in the database (preserving prejudged)
+        await resetScoresInDatabase(true)
+      } else {
+        // Reset ALL scores in the database (not preserving prejudged)
+        await resetScoresInDatabase(false)
+        // Create an empty scores object to replace the current one in the store
+        useCompetitionStore.setState({ scores: {} })
+      }
+
+      // 4. Save the competition state
       await saveCompetition()
 
-      toast.success("Contestants Moved", {
-        description: "All contestants have been moved to the first segment.",
+      // 5. Reload scores from the database to ensure UI is in sync
+      if (selectedCompetitionId) {
+        await loadScores(selectedCompetitionId)
+      }
+
+      toast.success("Initialization Complete", {
+        description: `All contestants moved to first segment, display order reset, and scores ${
+          preservePrejudged ? "(except prejudged) " : ""
+        }have been reset.`,
       })
     } catch (error) {
-      console.error("Failed to move contestants:", error)
+      console.error("Failed to initialize:", error)
       toast.error("Error", {
-        description: "Failed to move contestants. Please try again.",
-      })
-    } finally {
-      setIsProcessing(false)
-      closeDialog()
-    }
-  }
-
-  const handleResetScores = async () => {
-    try {
-      setIsProcessing(true)
-      await resetScores()
-      await saveCompetition()
-      toast.success("Scores Reset", {
-        description: "All non-prejudged scores have been reset.",
-      })
-    } catch (error) {
-      console.error("Failed to reset scores:", error)
-      toast.error("Error", {
-        description: "Failed to reset scores. Please try again.",
-      })
-    } finally {
-      setIsProcessing(false)
-      closeDialog()
-    }
-  }
-
-  const handleResetAllScores = async () => {
-    try {
-      setIsProcessing(true)
-
-      // Create an empty scores object to replace the current one
-      const emptyScores = {}
-
-      // Set the scores to the empty object
-      useCompetitionStore.setState({ scores: emptyScores })
-
-      // Save the competition state
-      await saveCompetition()
-
-      toast.success("All Scores Reset", {
-        description: "All scores including prejudged scores have been completely reset.",
-      })
-    } catch (error) {
-      console.error("Failed to reset all scores:", error)
-      toast.error("Error", {
-        description: "Failed to reset all scores. Please try again.",
+        description: "Failed to initialize. Please try again.",
       })
     } finally {
       setIsProcessing(false)
@@ -155,134 +196,94 @@ export function ResetScoresButton() {
   }
 
   const handleAction = () => {
-    if (dialogType === "move") {
-      return handleMoveToFirstSegment()
-    }
-
     if (!isConfirmStep) {
       return proceedToConfirmStep()
     }
 
-    if (confirmText !== "RESET") {
+    if (confirmText !== "INITIALIZE") {
       toast.error("Incorrect confirmation", {
-        description: "Please type RESET to confirm this action.",
+        description: "Please type INITIALIZE to confirm this action.",
       })
       return
     }
 
-    if (dialogType === "reset") {
-      return handleResetScores()
-    }
-
-    if (dialogType === "resetAll") {
-      return handleResetAllScores()
-    }
+    return handleInitialize()
   }
 
   const getDialogContent = () => {
-    if (!dialogType) return null
-
-    if (dialogType === "move") {
+    if (isConfirmStep) {
       return {
-        title: "Move All Contestants",
-        description: "This will move all contestants to the first segment. This action cannot be undone.",
-        showInput: false,
-        actionText: "Move Contestants",
+        title: "Confirm Initialization",
+        description: "Type INITIALIZE to confirm. This action cannot be undone.",
+        showInput: true,
+        actionText: "Confirm Initialization",
         actionClass: "",
       }
     }
 
-    if (dialogType === "reset") {
-      if (isConfirmStep) {
-        return {
-          title: "Confirm Reset",
-          description: "Type RESET to confirm deleting all non-prejudged scores. This action cannot be undone.",
-          showInput: true,
-          actionText: "Confirm Reset",
-          actionClass: "",
-        }
-      }
-
-      return {
-        title: "Reset Regular Scores",
-        description: "This will delete all scores except pre-judged scores. This action cannot be undone.",
-        showInput: false,
-        actionText: "Continue",
-        actionClass: "",
-      }
+    return {
+      title: "Initialize Competition",
+      description:
+        "This will move all contestants to the first segment, reset their display order, and reset scores. This action cannot be undone.",
+      showInput: false,
+      showPrejudgedOption: true,
+      actionText: "Continue",
+      actionClass: "",
     }
-
-    if (dialogType === "resetAll") {
-      if (isConfirmStep) {
-        return {
-          title: "Confirm Reset ALL",
-          description:
-            "Type RESET to confirm deleting ALL scores including prejudged scores. This action cannot be undone.",
-          showInput: true,
-          actionText: "Confirm Reset ALL",
-          actionClass: "bg-red-600 hover:bg-red-700",
-        }
-      }
-
-      return {
-        title: "Reset ALL Scores",
-        description: "This will delete ALL scores including prejudged scores. This action cannot be undone.",
-        showInput: false,
-        actionText: "Continue",
-        actionClass: "",
-      }
-    }
-
-    return null
   }
 
   const content = getDialogContent()
 
+  // Replace the Dialog component with this updated version
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
-            <ChevronDown className="ml-1 h-3 w-3 opacity-70" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem onClick={() => openDialog("move")} className="flex items-center">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            <span>Move All to First Segment</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => openDialog("reset")} className="flex items-center text-amber-600">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            <span>Reset Regular Scores</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openDialog("resetAll")} className="flex items-center text-red-600">
-            <Trash2 className="mr-2 h-4 w-4" />
-            <span>Reset ALL Scores</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Button
+        variant="outline"
+        className="bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
+        onClick={openDialog}
+      >
+        <RotateCcw className="mr-2 h-4 w-4" />
+        Initialize
+      </Button>
 
       {content && (
         <Dialog
           open={showDialog}
           onOpenChange={(open) => {
-            if (!open) closeDialog()
+            if (!open) {
+              // Use our improved closeDialog function
+              closeDialog()
+            }
           }}
         >
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent
+            className="sm:max-w-[425px]"
+            // Add this onEscapeKeyDown handler
+            onEscapeKeyDown={() => closeDialog()}
+            // Add this onInteractOutside handler
+            onInteractOutside={() => closeDialog()}
+          >
             <DialogHeader>
               <DialogTitle>{content.title}</DialogTitle>
               <DialogDescription>{content.description}</DialogDescription>
+
+              {content.showPrejudgedOption && (
+                <div className="flex items-center space-x-2 mt-4 pt-2 border-t">
+                  <Checkbox
+                    id="preservePrejudged"
+                    checked={preservePrejudged}
+                    onCheckedChange={(checked) => setPreservePrejudged(checked as boolean)}
+                  />
+                  <Label htmlFor="preservePrejudged" className="text-sm font-medium">
+                    Preserve prejudged scores during initialization
+                  </Label>
+                </div>
+              )}
+
               {content.showInput && (
                 <div className="mt-4">
                   <Input
-                    placeholder="Type RESET to confirm"
+                    placeholder="Type INITIALIZE to confirm"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     className="mt-2"
@@ -297,7 +298,7 @@ export function ResetScoresButton() {
               </Button>
               <Button
                 onClick={handleAction}
-                disabled={isProcessing || (content.showInput && confirmText !== "RESET")}
+                disabled={isProcessing || (content.showInput && confirmText !== "INITIALIZE")}
                 className={content.actionClass}
               >
                 {isProcessing ? (

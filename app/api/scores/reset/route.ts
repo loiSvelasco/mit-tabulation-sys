@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
 
     const userId = user.id
 
-    // Get competition ID from request
-    const { competitionId } = await request.json()
+    // Get competition ID and preservePrejudged flag from request
+    const { competitionId, preservePrejudged = true } = await request.json()
     if (!competitionId) {
       return NextResponse.json({ error: "Competition ID is required" }, { status: 400 })
     }
@@ -29,31 +29,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Competition not found or not owned by you" }, { status: 404 })
     }
 
-    // Get competition data to identify pre-judged criteria
-    const competitionData = JSON.parse(competitions[0].competition_data)
-    const segments = competitionData.competitionSettings.segments
+    let preservedCriteriaCount = 0
 
-    // Get all pre-judged criteria IDs
-    const prejudgedCriteriaIds = []
-    segments.forEach(segment => {
-      segment.criteria.forEach(criterion => {
-        if (criterion.isPrejudged) {
-          prejudgedCriteriaIds.push(criterion.id)
-        }
+    // If preservePrejudged is true, only delete non-prejudged scores
+    if (preservePrejudged) {
+      // Get competition data to identify pre-judged criteria
+      const competitionData = JSON.parse(competitions[0].competition_data)
+      const segments = competitionData.competitionSettings.segments
+
+      // Get all pre-judged criteria IDs
+      const prejudgedCriteriaIds = []
+      segments.forEach((segment) => {
+        segment.criteria.forEach((criterion) => {
+          if (criterion.isPrejudged) {
+            prejudgedCriteriaIds.push(criterion.id)
+          }
+        })
       })
-    })
 
-    // Delete all scores except those for pre-judged criteria
-    if (prejudgedCriteriaIds.length > 0) {
-      // If there are pre-judged criteria, delete all scores except those
-      await query(
-        `DELETE FROM scores 
-         WHERE competition_id = ? 
-         AND criterion_id NOT IN (${prejudgedCriteriaIds.map(() => '?').join(',')})`,
-        [competitionId, ...prejudgedCriteriaIds]
-      )
+      preservedCriteriaCount = prejudgedCriteriaIds.length
+
+      // Delete all scores except those for pre-judged criteria
+      if (prejudgedCriteriaIds.length > 0) {
+        // If there are pre-judged criteria, delete all scores except those
+        await query(
+          `DELETE FROM scores 
+           WHERE competition_id = ? 
+           AND criterion_id NOT IN (${prejudgedCriteriaIds.map(() => "?").join(",")})`,
+          [competitionId, ...prejudgedCriteriaIds],
+        )
+      } else {
+        // If there are no pre-judged criteria, delete all scores
+        await query("DELETE FROM scores WHERE competition_id = ?", [competitionId])
+      }
     } else {
-      // If there are no pre-judged criteria, delete all scores
+      // If preservePrejudged is false, delete ALL scores including prejudged ones
       await query("DELETE FROM scores WHERE competition_id = ?", [competitionId])
     }
 
@@ -62,8 +72,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Scores reset successfully",
-      preservedCriteria: prejudgedCriteriaIds.length,
+      message: preservePrejudged ? "Non-prejudged scores reset successfully" : "All scores reset successfully",
+      preservedCriteria: preservedCriteriaCount,
     })
   } catch (error) {
     console.error("Error resetting scores:", error)

@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useCallback } from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
 import { PrintResults } from "../print-results"
@@ -16,6 +17,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
   const { contestants, judges, scores, competitionSettings } = useCompetitionStore()
   const separateByGender = competitionSettings.separateRankingByGender
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+  const [refreshKey, setRefreshKey] = useState(0) // Used to force re-render
 
   // Get contestants in the selected segment
   const segmentContestants = contestants.filter((c) => c.currentSegmentId === segmentId)
@@ -35,6 +37,15 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
       [contestantId]: !prev[contestantId],
     }))
   }
+
+  // Reset function for debugging
+  const handleReset = useCallback(() => {
+    // Clear expanded rows
+    setExpandedRows({})
+    // Force re-render by updating the refresh key
+    setRefreshKey((prev) => prev + 1)
+    console.log("Rankings display reset for debugging")
+  }, [])
 
   // Render the rankings table for a specific group of contestants
   const renderRankingsTable = (contestantsGroup: typeof segmentContestants, groupTitle?: string) => {
@@ -63,8 +74,28 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
       judgeRankings[judge.id] = convertScoresToRanks(judgeScoreMap)
     })
 
-    // Calculate average scores for each contestant
+    // Calculate total and average scores for each contestant
+    const totalScores: Record<string, number> = {}
+    contestantsGroup.forEach((contestant) => {
+      let totalScore = 0
+
+      judges.forEach((judge) => {
+        if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
+          const judgeTotal = Object.values(scores[segmentId][contestant.id][judge.id]).reduce(
+            (sum, score) => sum + score,
+            0,
+          )
+
+          if (judgeTotal > 0) {
+            totalScore += judgeTotal
+          }
+        }
+      })
+
+      totalScores[contestant.id] = roundToTwoDecimals(totalScore)
+    })
     const avgScores: Record<string, number> = {}
+
     contestantsGroup.forEach((contestant) => {
       let totalScore = 0
       let count = 0
@@ -83,6 +114,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         }
       })
 
+      totalScores[contestant.id] = roundToTwoDecimals(totalScore)
       avgScores[contestant.id] = count > 0 ? roundToTwoDecimals(totalScore / count) : 0
     })
 
@@ -151,18 +183,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 </TableHead>
 
                 {/* Dynamic header based on ranking method */}
-                {rankingMethod === "custom" ? (
-                  <>
-                    {/* Show criteria columns for custom formula */}
-                    {criteria.map((criterion) => (
-                      <TableHead key={criterion.id} className="text-center bg-muted">
-                        {criterion.name}
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center bg-muted">Max Score</TableHead>
-                    <TableHead className="text-center bg-muted">Rank</TableHead>
-                  </>
-                ) : rankingMethod === "avg-rank" ? (
+                {rankingMethod === "avg-rank" ? (
                   <>
                     {/* Show criteria columns */}
                     {criteria.map((criterion) => (
@@ -170,7 +191,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                         {criterion.name}
                       </TableHead>
                     ))}
-                    <TableHead className="text-center bg-muted">Average Score</TableHead>
+                    <TableHead className="text-center bg-muted">Total Score</TableHead>
                     <TableHead className="text-center bg-muted">Rank</TableHead>
                   </>
                 ) : (
@@ -198,7 +219,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                 <TableHead className="bg-muted"></TableHead>
 
                 {/* Dynamic subheader based on ranking method */}
-                {rankingMethod === "custom" ? (
+                {rankingMethod === "avg-rank" ? (
                   <>
                     {/* Subheaders for criteria columns */}
                     {criteria.map((criterion) => (
@@ -206,18 +227,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                         (max: {criterion.maxScore})
                       </TableHead>
                     ))}
-                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Value</TableHead>
-                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Position</TableHead>
-                  </>
-                ) : rankingMethod === "avg-rank" ? (
-                  <>
-                    {/* Subheaders for criteria columns */}
-                    {criteria.map((criterion) => (
-                      <TableHead key={`sub-${criterion.id}`} className="text-center px-2 py-1 text-xs bg-muted">
-                        (max: {criterion.maxScore})
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Value</TableHead>
+                    <TableHead className="text-center px-2 py-1 text-xs bg-muted">Sum</TableHead>
                     <TableHead className="text-center px-2 py-1 text-xs bg-muted">Position</TableHead>
                   </>
                 ) : (
@@ -267,7 +277,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                         </TableCell>
 
                         {/* Dynamic content based on ranking method */}
-                        {rankingMethod === "custom" ? (
+                        {rankingMethod === "avg-rank" ? (
                           <>
                             {/* Show criteria scores */}
                             {criteria.map((criterion) => {
@@ -285,31 +295,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                               )
                             })}
                             <TableCell className="text-center align-middle font-medium">
-                              {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
-                            </TableCell>
-                            <TableCell className="text-center align-middle">
-                              {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
-                            </TableCell>
-                          </>
-                        ) : rankingMethod === "avg-rank" ? (
-                          <>
-                            {/* Show criteria scores */}
-                            {criteria.map((criterion) => {
-                              const avgCriterionScore = avgCriteriaScores[contestant.id]?.[criterion.id] || 0
-                              const percentage =
-                                criterion.maxScore > 0 ? (avgCriterionScore / criterion.maxScore) * 100 : 0
-
-                              return (
-                                <TableCell key={criterion.id} className="text-center align-middle">
-                                  {avgCriterionScore > 0 ? avgCriterionScore.toFixed(2) : "-"}
-                                  <div className="text-xs text-muted-foreground">
-                                    ({roundToTwoDecimals(percentage).toFixed(0)}%)
-                                  </div>
-                                </TableCell>
-                              )
-                            })}
-                            <TableCell className="text-center align-middle font-medium">
-                              {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
+                              {totalScores[contestant.id] > 0 ? totalScores[contestant.id].toFixed(2) : "-"}
                             </TableCell>
                             <TableCell className="text-center align-middle">
                               {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
@@ -365,11 +351,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                       {isExpanded && (
                         <TableRow className={`${rowClass} border-t-0`}>
                           <TableCell
-                            colSpan={
-                              rankingMethod === "custom" || rankingMethod === "avg-rank"
-                                ? criteria.length + 6
-                                : 4 + judges.length * 2
-                            }
+                            colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
                             className="p-0"
                           >
                             <div className="p-4 bg-muted/5 border-t border-dashed">
@@ -539,9 +521,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
                                 )}
                                 {competitionSettings.ranking.method === "avg-rank" && (
                                   <p className="text-sm">
-                                    Average scores ({(() => {
+                                    Total scores ({(() => {
                                       let totalScore = 0
-                                      let count = 0
 
                                       judges.forEach((judge) => {
                                         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
@@ -551,13 +532,12 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
                                           if (judgeTotal > 0) {
                                             totalScore += judgeTotal
-                                            count++
                                           }
                                         }
                                       })
 
-                                      // Round the average
-                                      return count > 0 ? roundToTwoDecimals(totalScore / count).toFixed(2) : "-"
+                                      // Round the total
+                                      return roundToTwoDecimals(totalScore).toFixed(2)
                                     })()}) then ranked against other contestants.
                                   </p>
                                 )}
@@ -669,11 +649,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={
-                      rankingMethod === "custom" || rankingMethod === "avg-rank"
-                        ? criteria.length + 6
-                        : 4 + judges.length * 2
-                    }
+                    colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
                     className="text-center py-4 text-muted-foreground"
                   >
                     No contestants in this category
@@ -697,7 +673,19 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
             with <span className="font-medium">{competitionSettings.ranking.tiebreaker}</span> tiebreaker
           </p>
         </div>
-        <PrintResults className="float-right" key={segment?.id} segmentId={segment?.id} />
+        <div className="flex items-center gap-2">
+          {/* <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="flex items-center gap-1"
+            title="Reset display for debugging"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Reset</span>
+          </Button> */}
+          <PrintResults className="float-right" key={`${segment?.id}-${refreshKey}`} segmentId={segment?.id} />
+        </div>
       </div>
 
       {separateByGender ? (

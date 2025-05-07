@@ -9,13 +9,23 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { v4 as uuidv4 } from "uuid"
-import { Plus, Trash2, Info } from "lucide-react"
+import { Plus, Trash2, Info, EditIcon, SaveIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { PrejudgedScoresInput } from "@/components/prejudged/PrejudgedScoresInput"
 import { CarryForwardConfig } from "@/components/CarryForwardConfig"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const CompetitionSettings = () => {
   const { competitionSettings, setCompetitionSettings, addSegment, removeSegment, addCriterion, removeCriterion } =
@@ -28,8 +38,30 @@ const CompetitionSettings = () => {
     maxScore: 10,
     segmentId: "",
     isPrejudged: false,
-    isCarryForward: false, // Add isCarryForward property
+    isCarryForward: false,
   })
+
+  // States for editing segments
+  const [editingSegment, setEditingSegment] = useState<{ id: string; name: string } | null>(null)
+
+  // States for editing criteria
+  const [editingCriterion, setEditingCriterion] = useState<{
+    segmentId: string
+    criterionId: string
+    name: string
+    description: string
+    maxScore: number
+    isPrejudged: boolean
+    isCarryForward: boolean
+  } | null>(null)
+
+  // State for delete confirmation
+  const [deleteSegment, setDeleteSegment] = useState<{ id: string; name: string } | null>(null)
+  const [deleteCriterion, setDeleteCriterion] = useState<{
+    segmentId: string
+    criterionId: string
+    name: string
+  } | null>(null)
 
   const handleCompetitionNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCompetitionSettings({ ...competitionSettings, name: e.target.value })
@@ -59,7 +91,7 @@ const CompetitionSettings = () => {
       description: criteriaInput.description,
       maxScore: criteriaInput.maxScore,
       isPrejudged: criteriaInput.isPrejudged,
-      isCarryForward: criteriaInput.isCarryForward, // Include isCarryForward property
+      isCarryForward: criteriaInput.isCarryForward,
     })
     setCriteriaInput({
       ...criteriaInput,
@@ -67,8 +99,93 @@ const CompetitionSettings = () => {
       description: "",
       maxScore: 10,
       isPrejudged: false,
-      isCarryForward: false, // Reset isCarryForward
+      isCarryForward: false,
     })
+  }
+
+  // Edit segment functions
+  const handleEditSegmentClick = (segmentId: string, currentName: string) => {
+    setEditingSegment({ id: segmentId, name: currentName })
+  }
+
+  const handleSaveSegmentClick = () => {
+    if (editingSegment && editingSegment.name.trim()) {
+      setCompetitionSettings({
+        ...competitionSettings,
+        segments: competitionSettings.segments.map((s) =>
+          s.id === editingSegment.id ? { ...s, name: editingSegment.name } : s,
+        ),
+      })
+      setEditingSegment(null)
+      toast.success("Segment name updated")
+    } else {
+      toast.error("Segment name cannot be empty")
+    }
+  }
+
+  const handleCancelSegmentClick = () => {
+    setEditingSegment(null)
+  }
+
+  // Edit criterion functions
+  const handleEditCriterionClick = (segmentId: string, criterion: any) => {
+    setEditingCriterion({
+      segmentId,
+      criterionId: criterion.id,
+      name: criterion.name,
+      description: criterion.description,
+      maxScore: criterion.maxScore,
+      isPrejudged: criterion.isPrejudged,
+      isCarryForward: criterion.isCarryForward,
+    })
+  }
+
+  const handleSaveCriterionClick = () => {
+    if (editingCriterion && editingCriterion.name.trim()) {
+      // Update the criterion in the segment
+      setCompetitionSettings({
+        ...competitionSettings,
+        segments: competitionSettings.segments.map((s) =>
+          s.id === editingCriterion.segmentId
+            ? {
+                ...s,
+                criteria: s.criteria.map((c) =>
+                  c.id === editingCriterion.criterionId
+                    ? {
+                        ...c,
+                        name: editingCriterion.name,
+                        description: editingCriterion.description,
+                        maxScore: editingCriterion.maxScore,
+                        isPrejudged: editingCriterion.isPrejudged,
+                        isCarryForward: editingCriterion.isCarryForward,
+                      }
+                    : c,
+                ),
+              }
+            : s,
+        ),
+      })
+      setEditingCriterion(null)
+      toast.success("Criterion updated")
+    } else {
+      toast.error("Criterion name cannot be empty")
+    }
+  }
+
+  const handleCancelCriterionClick = () => {
+    setEditingCriterion(null)
+  }
+
+  // Handle segment deletion with confirmation
+  const handleDeleteSegment = (segmentId: string) => {
+    removeSegment(segmentId)
+    toast.success("Segment deleted successfully")
+  }
+
+  // Handle criterion deletion with confirmation
+  const handleDeleteCriterion = (segmentId: string, criterionId: string) => {
+    removeCriterion(segmentId, criterionId)
+    toast.success("Criterion deleted successfully")
   }
 
   return (
@@ -132,9 +249,42 @@ const CompetitionSettings = () => {
             {competitionSettings.segments.map((segment) => (
               <TabsContent key={segment.id} value={segment.id}>
                 <div className="mt-4">
-                  <Button onClick={() => removeSegment(segment.id)} className="mb-4 float-right" variant="ghost">
-                    <Trash2 /> Remove Segment
-                  </Button>
+                  <div className="flex justify-between items-center mb-4">
+                    {editingSegment?.id === segment.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editingSegment.name}
+                          onChange={(e) => setEditingSegment((prev) => prev && { ...prev, name: e.target.value })}
+                          className="max-w-xs"
+                        />
+                        <Button size="icon" variant="secondary" onClick={handleSaveSegmentClick}>
+                          <SaveIcon size={16} />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={handleCancelSegmentClick}>
+                          <XIcon size={16} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold">{segment.name}</h3>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditSegmentClick(segment.id, segment.name)}
+                        >
+                          <EditIcon size={16} />
+                        </Button>
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => setDeleteSegment({ id: segment.id, name: segment.name })}
+                      className="float-right"
+                      variant="ghost"
+                    >
+                      <Trash2 /> Remove Segment
+                    </Button>
+                  </div>
+
                   <h3 className="text-md font-semibold">Advancing Candidates</h3>
                   <Input
                     type="number"
@@ -270,40 +420,151 @@ const CompetitionSettings = () => {
                           <TableHead>Criteria</TableHead>
                           <TableHead>Maximum Points</TableHead>
                           <TableHead>Type</TableHead>
-                          <TableHead></TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {segment.criteria.map((criterion) => (
                           <TableRow key={criterion.id} className="border-t">
                             <TableCell>
-                              {criterion.name} - {criterion.description}
-                            </TableCell>
-                            <TableCell>{criterion.maxScore}</TableCell>
-                            <TableCell>
-                              {criterion.isPrejudged ? (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                  Pre-judged
-                                </Badge>
-                              ) : criterion.isCarryForward ? (
-                                <Badge variant="outline" className="bg-green-50 text-green-700">
-                                  Carry-Forward
-                                </Badge>
+                              {editingCriterion?.criterionId === criterion.id ? (
+                                <div className="space-y-2">
+                                  <Input
+                                    value={editingCriterion.name}
+                                    onChange={(e) =>
+                                      setEditingCriterion((prev) => prev && { ...prev, name: e.target.value })
+                                    }
+                                    placeholder="Criterion Name"
+                                  />
+                                  <Input
+                                    value={editingCriterion.description}
+                                    onChange={(e) =>
+                                      setEditingCriterion((prev) => prev && { ...prev, description: e.target.value })
+                                    }
+                                    placeholder="Description"
+                                  />
+                                </div>
                               ) : (
-                                <Badge variant="outline">Live</Badge>
+                                <>
+                                  {criterion.name} - {criterion.description}
+                                </>
                               )}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeCriterion(segment.id, criterion.id)}
-                              >
-                                <Trash2 />
-                              </Button>
+                              {editingCriterion?.criterionId === criterion.id ? (
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="100"
+                                  value={editingCriterion.maxScore}
+                                  onChange={(e) =>
+                                    setEditingCriterion((prev) => prev && { ...prev, maxScore: Number(e.target.value) })
+                                  }
+                                />
+                              ) : (
+                                criterion.maxScore
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editingCriterion?.criterionId === criterion.id ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id={`edit-isPrejudged-${criterion.id}`}
+                                      checked={editingCriterion.isPrejudged}
+                                      onCheckedChange={(checked) => {
+                                        if (checked === true) {
+                                          setEditingCriterion(
+                                            (prev) => prev && { ...prev, isPrejudged: true, isCarryForward: false },
+                                          )
+                                        } else {
+                                          setEditingCriterion((prev) => prev && { ...prev, isPrejudged: false })
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`edit-isPrejudged-${criterion.id}`} className="text-sm">
+                                      Pre-judged
+                                    </label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id={`edit-isCarryForward-${criterion.id}`}
+                                      checked={editingCriterion.isCarryForward}
+                                      onCheckedChange={(checked) => {
+                                        if (checked === true) {
+                                          setEditingCriterion(
+                                            (prev) => prev && { ...prev, isCarryForward: true, isPrejudged: false },
+                                          )
+                                        } else {
+                                          setEditingCriterion((prev) => prev && { ...prev, isCarryForward: false })
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`edit-isCarryForward-${criterion.id}`} className="text-sm">
+                                      Carry-Forward
+                                    </label>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {criterion.isPrejudged ? (
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                      Pre-judged
+                                    </Badge>
+                                  ) : criterion.isCarryForward ? (
+                                    <Badge variant="outline" className="bg-green-50 text-green-700">
+                                      Carry-Forward
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline">Live</Badge>
+                                  )}
+                                </>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editingCriterion?.criterionId === criterion.id ? (
+                                <>
+                                  <Button size="icon" variant="secondary" onClick={handleSaveCriterionClick}>
+                                    <SaveIcon size={16} />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={handleCancelCriterionClick}>
+                                    <XIcon size={16} />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleEditCriterionClick(segment.id, criterion)}
+                                  >
+                                    <EditIcon size={16} />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      setDeleteCriterion({
+                                        segmentId: segment.id,
+                                        criterionId: criterion.id,
+                                        name: criterion.name,
+                                      })
+                                    }
+                                  >
+                                    <Trash2 size={16} />
+                                  </Button>
+                                </>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
+                        {segment.criteria.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
+                              No criteria added for this segment.
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
                   </div>
@@ -319,6 +580,60 @@ const CompetitionSettings = () => {
 
       {/* Carry-Forward Scores Configuration */}
       <CarryForwardConfig />
+
+      {/* Segment Delete Confirmation Dialog */}
+      <AlertDialog open={deleteSegment !== null} onOpenChange={(open) => !open && setDeleteSegment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete segment <span className="font-semibold">{deleteSegment?.name}</span>? This
+              will also delete all criteria associated with this segment. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteSegment) {
+                  handleDeleteSegment(deleteSegment.id)
+                  setDeleteSegment(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Criterion Delete Confirmation Dialog */}
+      <AlertDialog open={deleteCriterion !== null} onOpenChange={(open) => !open && setDeleteCriterion(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete criterion <span className="font-semibold">{deleteCriterion?.name}</span>?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteCriterion) {
+                  handleDeleteCriterion(deleteCriterion.segmentId, deleteCriterion.criterionId)
+                  setDeleteCriterion(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
