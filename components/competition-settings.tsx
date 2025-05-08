@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -63,6 +63,21 @@ const CompetitionSettings = () => {
     name: string
   } | null>(null)
 
+  const segmentInputRef = useRef<HTMLInputElement>(null)
+  const criterionNameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingSegment && segmentInputRef.current) {
+      segmentInputRef.current.focus()
+    }
+  }, [editingSegment])
+
+  useEffect(() => {
+    if (editingCriterion && criterionNameInputRef.current) {
+      criterionNameInputRef.current.focus()
+    }
+  }, [editingCriterion])
+
   const handleCompetitionNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCompetitionSettings({ ...competitionSettings, name: e.target.value })
   }
@@ -84,7 +99,10 @@ const CompetitionSettings = () => {
   }
 
   const handleAddCriterion = (segmentId: string) => {
-    if (!criteriaInput.name.trim()) return
+    if (!criteriaInput.name.trim()) {
+      toast.error("Criterion name cannot be empty")
+      return
+    }
     addCriterion(segmentId, {
       id: uuidv4(),
       name: criteriaInput.name,
@@ -101,6 +119,17 @@ const CompetitionSettings = () => {
       isPrejudged: false,
       isCarryForward: false,
     })
+  }
+
+  // Form submission handlers for Enter key
+  const handleSegmentFormSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    handleAddSegment()
+  }
+
+  const handleCriterionFormSubmit = (e: FormEvent, segmentId: string) => {
+    e.preventDefault()
+    handleAddCriterion(segmentId)
   }
 
   // Edit segment functions
@@ -125,6 +154,15 @@ const CompetitionSettings = () => {
 
   const handleCancelSegmentClick = () => {
     setEditingSegment(null)
+  }
+
+  // Handle keyboard events for segment editing
+  const handleSegmentEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveSegmentClick()
+    } else if (e.key === "Escape") {
+      handleCancelSegmentClick()
+    }
   }
 
   // Edit criterion functions
@@ -176,6 +214,15 @@ const CompetitionSettings = () => {
     setEditingCriterion(null)
   }
 
+  // Handle keyboard events for criterion editing
+  const handleCriterionEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveCriterionClick()
+    } else if (e.key === "Escape") {
+      handleCancelCriterionClick()
+    }
+  }
+
   // Handle segment deletion with confirmation
   const handleDeleteSegment = (segmentId: string) => {
     removeSegment(segmentId)
@@ -221,17 +268,17 @@ const CompetitionSettings = () => {
           <CardDescription>Set up the segments that will make up your competition</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mt-2">
+          <form onSubmit={handleSegmentFormSubmit} className="flex gap-2 mt-2">
             <Input
               type="text"
               placeholder="Segment Name"
               value={segmentName}
               onChange={(e) => setSegmentName(e.target.value)}
             />
-            <Button onClick={handleAddSegment}>
+            <Button type="submit">
               <Plus /> Add Segment
             </Button>
-          </div>
+          </form>
 
           <Tabs defaultValue={competitionSettings.segments[0]?.id}>
             <TabsList className="mt-4">
@@ -253,8 +300,10 @@ const CompetitionSettings = () => {
                     {editingSegment?.id === segment.id ? (
                       <div className="flex items-center gap-2">
                         <Input
+                          ref={segmentInputRef}
                           value={editingSegment.name}
                           onChange={(e) => setEditingSegment((prev) => prev && { ...prev, name: e.target.value })}
+                          onKeyDown={handleSegmentEditKeyDown}
                           className="max-w-xs"
                         />
                         <Button size="icon" variant="secondary" onClick={handleSaveSegmentClick}>
@@ -305,7 +354,7 @@ const CompetitionSettings = () => {
                 {/* Criteria */}
                 <div className="mt-6">
                   <h3 className="text-md font-semibold">Criteria for Judging</h3>
-                  <div className="flex flex-col gap-2 mt-2">
+                  <form onSubmit={(e) => handleCriterionFormSubmit(e, segment.id)} className="flex flex-col gap-2 mt-2">
                     <div className="flex gap-2">
                       <Input
                         type="text"
@@ -411,8 +460,8 @@ const CompetitionSettings = () => {
                       </TooltipProvider>
                     </div>
 
-                    <Button onClick={() => handleAddCriterion(segment.id)}>Add Criterion</Button>
-                  </div>
+                    <Button type="submit">Add Criterion</Button>
+                  </form>
                   <div className="border rounded-md space-y-2 mt-4">
                     <Table>
                       <TableHeader>
@@ -430,10 +479,12 @@ const CompetitionSettings = () => {
                               {editingCriterion?.criterionId === criterion.id ? (
                                 <div className="space-y-2">
                                   <Input
+                                    ref={criterionNameInputRef}
                                     value={editingCriterion.name}
                                     onChange={(e) =>
                                       setEditingCriterion((prev) => prev && { ...prev, name: e.target.value })
                                     }
+                                    onKeyDown={handleCriterionEditKeyDown}
                                     placeholder="Criterion Name"
                                   />
                                   <Input
@@ -441,6 +492,7 @@ const CompetitionSettings = () => {
                                     onChange={(e) =>
                                       setEditingCriterion((prev) => prev && { ...prev, description: e.target.value })
                                     }
+                                    onKeyDown={handleCriterionEditKeyDown}
                                     placeholder="Description"
                                   />
                                 </div>
@@ -460,6 +512,7 @@ const CompetitionSettings = () => {
                                   onChange={(e) =>
                                     setEditingCriterion((prev) => prev && { ...prev, maxScore: Number(e.target.value) })
                                   }
+                                  onKeyDown={handleCriterionEditKeyDown}
                                 />
                               ) : (
                                 criterion.maxScore

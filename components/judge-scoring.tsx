@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -58,6 +58,29 @@ const EnhancedJudgeScoring = () => {
   const [deleteContestant, setDeleteContestant] = useState<{ id: string; name: string } | null>(null)
   const [deleteJudge, setDeleteJudge] = useState<{ id: string; name: string } | null>(null)
 
+  // Add these refs after the state declarations
+  const contestantInputRef = useRef<HTMLInputElement>(null)
+  const judgeInputRef = useRef<HTMLInputElement>(null)
+
+  const [judgeName, setJudgeName] = useState("")
+  const [showAccessCodes, setShowAccessCodes] = useState<{ [key: string]: boolean }>({})
+  const [editingJudge, setEditingJudge] = useState<{ id: string; name: string } | null>(null)
+  const [needsSync, setNeedsSync] = useState(false)
+
+  // Add this effect to focus the contestant input when editing
+  useEffect(() => {
+    if (editingContestant && contestantInputRef.current) {
+      contestantInputRef.current.focus()
+    }
+  }, [editingContestant])
+
+  // Add this effect to focus the judge input when editing
+  useEffect(() => {
+    if (editingJudge && judgeInputRef.current) {
+      judgeInputRef.current.focus()
+    }
+  }, [editingJudge])
+
   // Keep local judges in sync with store judges
   useEffect(() => {
     setLocalJudges(judges)
@@ -78,10 +101,14 @@ const EnhancedJudgeScoring = () => {
     setEditingContestant(null)
   }
 
-  const [judgeName, setJudgeName] = useState("")
-  const [showAccessCodes, setShowAccessCodes] = useState<{ [key: string]: boolean }>({})
-  const [editingJudge, setEditingJudge] = useState<{ id: string; name: string } | null>(null)
-  const [needsSync, setNeedsSync] = useState(false)
+  // Handle keyboard events for contestant editing
+  const handleContestantEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveClickContestant()
+    } else if (e.key === "Escape") {
+      handleCancelClickContestant()
+    }
+  }
 
   const handleEditClickJudge = (judgeId: string, currentName: string) => {
     setEditingJudge({ id: judgeId, name: currentName })
@@ -100,6 +127,15 @@ const EnhancedJudgeScoring = () => {
     setEditingJudge(null)
   }
 
+  // Handle keyboard events for judge editing
+  const handleJudgeEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveClickJudge()
+    } else if (e.key === "Escape") {
+      handleCancelClickJudge()
+    }
+  }
+
   const handleAddContestant = () => {
     if (!contestantName.trim()) return
 
@@ -112,6 +148,17 @@ const EnhancedJudgeScoring = () => {
     setNeedsSync(true)
     addJudge(judgeName)
     setJudgeName("")
+  }
+
+  // Form submission handlers for Enter key
+  const handleContestantFormSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    handleAddContestant()
+  }
+
+  const handleJudgeFormSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    handleAddJudge()
   }
 
   const generateAccessCode = () => {
@@ -205,7 +252,7 @@ const EnhancedJudgeScoring = () => {
           <CardDescription>Add and manage contestants</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
+          <form onSubmit={handleContestantFormSubmit} className="flex gap-2">
             <Input
               type="text"
               placeholder="Contestant Name"
@@ -226,10 +273,10 @@ const EnhancedJudgeScoring = () => {
                 </SelectContent>
               </Select>
             )}
-            <Button onClick={handleAddContestant}>
+            <Button type="submit">
               <Plus /> Add
             </Button>
-          </div>
+          </form>
 
           {/* Contestants Table */}
           <div className="border rounded-md">
@@ -258,8 +305,10 @@ const EnhancedJudgeScoring = () => {
                     <TableCell>
                       {editingContestant?.contestantId === contestant.id ? (
                         <Input
+                          ref={contestantInputRef}
                           value={editingContestant.name}
                           onChange={(e) => setEditingContestant((prev) => prev && { ...prev, name: e.target.value })}
+                          onKeyDown={handleContestantEditKeyDown}
                         />
                       ) : (
                         contestant.name
@@ -349,17 +398,17 @@ const EnhancedJudgeScoring = () => {
           )}
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
+          <form onSubmit={handleJudgeFormSubmit} className="flex gap-2">
             <Input
               type="text"
               placeholder="Judge Name"
               value={judgeName}
               onChange={(e) => setJudgeName(e.target.value)}
             />
-            <Button onClick={handleAddJudge}>
+            <Button type="submit">
               <UserPlus /> Add
             </Button>
-          </div>
+          </form>
 
           {/* Judges Table */}
           <div className="border rounded-md">
@@ -377,8 +426,10 @@ const EnhancedJudgeScoring = () => {
                     <TableCell>
                       {editingJudge?.id === judge.id ? (
                         <Input
+                          ref={judgeInputRef}
                           value={editingJudge.name}
                           onChange={(e) => setEditingJudge((prev) => prev && { ...prev, name: e.target.value })}
+                          onKeyDown={handleJudgeEditKeyDown}
                         />
                       ) : (
                         judge.name

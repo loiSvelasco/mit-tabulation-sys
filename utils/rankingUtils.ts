@@ -654,6 +654,15 @@ export const calculateRankings = (
     tiebreaker?: string
     tiebreakerCriterionId?: string
     customFormula?: string
+    criteria?: Array<{ weight?: number }> // Added criteria type
+  },
+  competitionSettings?: {
+    segments?: Array<{
+      id: string
+      criteria?: Array<{
+        weight?: number
+      }>
+    }>
   },
 ) => {
   const groupedScores: Record<string, Array<Contestant & { total: number; avg: number; rank: number }>> = {}
@@ -697,9 +706,52 @@ export const calculateRankings = (
           break
 
         case "weighted":
-          // Add support for weighted criteria
-          // This is a placeholder - you'll need to implement this based on your criteria structure
-          calculatedScore = calculateAverageScore(judgeScores)
+          // For weighted method, we need to get the criteria for the contestant's segment
+          // This is more complex in the overall rankings since contestants might be in different segments
+
+          // Get the segment for this contestant to access its criteria
+          const segment = competitionSettings?.segments?.find((s) => s.id === contestant.currentSegmentId)
+
+          if (segment && segment.criteria && segment.criteria.length > 0) {
+            // We have criteria with potential weights
+            let totalWeightedScore = 0
+            let totalWeight = 0
+
+            // Process each criterion
+            segment.criteria.forEach((criterion) => {
+              // Use weight property if available, otherwise default to 1
+              const weight = typeof criterion.weight === "number" ? criterion.weight : 1
+              totalWeight += weight
+
+              // Get scores for this criterion from all judges
+              const criterionScores: number[] = []
+
+              judges.forEach((judge) => {
+                // In the overall rankings, scores are structured differently than in segment scores
+                // We need to check if there's a score for this contestant from this judge
+                if (scores[judge.id]?.[contestant.id] !== undefined) {
+                  // In this case, we're assuming each judge's score corresponds to a criterion
+                  // You may need to adjust this based on your actual data structure
+                  criterionScores.push(roundToTwoDecimals(scores[judge.id][contestant.id]))
+                }
+              })
+
+              // Calculate average score for this criterion
+              const avgCriterionScore =
+                criterionScores.length > 0
+                  ? roundToTwoDecimals(criterionScores.reduce((sum, score) => sum + score, 0) / criterionScores.length)
+                  : 0
+
+              // Add weighted score to total
+              totalWeightedScore += avgCriterionScore * weight
+            })
+
+            // Calculate final weighted average
+            calculatedScore = totalWeight > 0 ? roundToTwoDecimals(totalWeightedScore / totalWeight) : 0
+          } else {
+            // Fallback to average if criteria information is not available
+            calculatedScore = calculateAverageScore(judgeScores)
+          }
           break
 
         case "custom":

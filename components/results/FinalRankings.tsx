@@ -437,6 +437,16 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
     )
   }
 
+  // Function to get all judge scores for a contestant
+  const getAllJudgeScores = (contestantId: string): number[] => {
+    const result: number[] = []
+    judges.forEach((judge) => {
+      const score = judgeScores[judge.id]?.[contestantId] || 0
+      if (score > 0) result.push(score)
+    })
+    return result
+  }
+
   return (
     <div className="mb-6">
       {groupTitle && (
@@ -453,7 +463,17 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                 Contestant
               </TableHead>
 
-              {rankingMethod === "avg-rank" ? (
+              {rankingMethod === "weighted" ? (
+                // Custom header for weighted method
+                <>
+                  <TableHead colSpan={criteria.length} className="text-center bg-muted">
+                    Criteria Scores (with weights)
+                  </TableHead>
+                  <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                    Weighted Score
+                  </TableHead>
+                </>
+              ) : rankingMethod === "avg-rank" ? (
                 <>
                   {criteria.map((criterion) => (
                     <TableHead key={criterion.id} className="text-center bg-muted">
@@ -462,6 +482,42 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                   ))}
                   <TableHead className="text-center bg-muted">Total Score</TableHead>
                   <TableHead className="text-center bg-muted">Rank</TableHead>
+                </>
+              ) : rankingMethod === "median" ? (
+                <>
+                  <TableHead colSpan={judges.length} className="text-center bg-muted">
+                    Judge Scores
+                  </TableHead>
+                  <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                    Median Score
+                  </TableHead>
+                </>
+              ) : rankingMethod === "trimmed" ? (
+                <>
+                  <TableHead colSpan={judges.length} className="text-center bg-muted">
+                    Judge Scores
+                  </TableHead>
+                  <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                    Trimmed Mean ({competitionSettings.ranking.trimPercentage}%)
+                  </TableHead>
+                </>
+              ) : rankingMethod === "borda" ? (
+                <>
+                  <TableHead colSpan={judges.length} className="text-center bg-muted">
+                    Judge Ranks
+                  </TableHead>
+                  <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                    Borda Points
+                  </TableHead>
+                </>
+              ) : rankingMethod === "avg" ? (
+                <>
+                  <TableHead colSpan={judges.length} className="text-center bg-muted">
+                    Judge Scores
+                  </TableHead>
+                  <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                    Average Score
+                  </TableHead>
                 </>
               ) : (
                 <>
@@ -474,9 +530,13 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                 </>
               )}
 
-              <TableHead rowSpan={2} className="align-middle text-center bg-muted">
-                {rankingMethod === "rank-avg-rank" ? "Final Rank" : "Avg Rank"}
-              </TableHead>
+              {/* Only show Average Rank column for rank-avg-rank method */}
+              {rankingMethod === "rank-avg-rank" && (
+                <TableHead rowSpan={2} className="align-middle text-center bg-muted">
+                  Average Rank
+                </TableHead>
+              )}
+
               <TableHead rowSpan={2} className="align-middle text-center bg-muted">
                 Final Rank
               </TableHead>
@@ -487,7 +547,16 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
             <TableRow className="divide-x divide-border">
               <TableHead className="bg-muted"></TableHead>
 
-              {rankingMethod === "avg-rank" ? (
+              {rankingMethod === "weighted" ? (
+                // Criteria with weights for weighted method
+                <>
+                  {criteria.map((criterion) => (
+                    <TableHead key={`sub-${criterion.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                      {criterion.name} (×{typeof criterion.weight === "number" ? criterion.weight : 1})
+                    </TableHead>
+                  ))}
+                </>
+              ) : rankingMethod === "avg-rank" ? (
                 <>
                   {criteria.map((criterion) => (
                     <TableHead key={`sub-${criterion.id}`} className="text-center px-2 py-1 text-xs bg-muted">
@@ -496,6 +565,24 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                   ))}
                   <TableHead className="text-center px-2 py-1 text-xs bg-muted">Sum</TableHead>
                   <TableHead className="text-center px-2 py-1 text-xs bg-muted">Position</TableHead>
+                </>
+              ) : rankingMethod === "median" || rankingMethod === "trimmed" || rankingMethod === "avg" ? (
+                // Judge names for median, trimmed, and avg methods
+                <>
+                  {judges.map((judge) => (
+                    <TableHead key={`score-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                      {judge.name}
+                    </TableHead>
+                  ))}
+                </>
+              ) : rankingMethod === "borda" ? (
+                // Judge names for borda method
+                <>
+                  {judges.map((judge) => (
+                    <TableHead key={`rank-${judge.id}`} className="text-center px-2 py-1 text-xs bg-muted">
+                      {judge.name}
+                    </TableHead>
+                  ))}
                 </>
               ) : (
                 <>
@@ -539,7 +626,31 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                       </TableCell>
                       <TableCell className="text-center align-middle">{contestant.name}</TableCell>
 
-                      {rankingMethod === "avg-rank" ? (
+                      {rankingMethod === "weighted" ? (
+                        // Custom cells for weighted method
+                        <>
+                          {criteria.map((criterion) => {
+                            const avgCriterionScore = avgCriteriaScores[contestant.id]?.[criterion.id] || 0
+                            const weight = typeof criterion.weight === "number" ? criterion.weight : 1
+                            const weightedScore = roundToTwoDecimals(avgCriterionScore * weight)
+                            const percentage = calculatePercentage(avgCriterionScore, criterion.maxScore)
+
+                            return (
+                              <TableCell key={criterion.id} className="text-center align-middle">
+                                <div className="font-medium">
+                                  {avgCriterionScore > 0 ? avgCriterionScore.toFixed(2) : "-"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {weightedScore.toFixed(2)} ({percentage.toFixed(0)}%)
+                                </div>
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center align-middle font-medium">
+                            {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                          </TableCell>
+                        </>
+                      ) : rankingMethod === "avg-rank" ? (
                         <>
                           {criteria.map((criterion) => {
                             const avgCriterionScore = avgCriteriaScores[contestant.id]?.[criterion.id] || 0
@@ -559,7 +670,94 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                             {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
                           </TableCell>
                         </>
+                      ) : rankingMethod === "median" ? (
+                        // Median method cells
+                        <>
+                          {judges.map((judge) => {
+                            const score = judgeScores[judge.id]?.[contestant.id] || 0
+                            return (
+                              <TableCell key={`score-${judge.id}`} className="text-center align-middle">
+                                {score > 0 ? score.toFixed(2) : "-"}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center align-middle font-medium">
+                            {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                          </TableCell>
+                        </>
+                      ) : rankingMethod === "trimmed" ? (
+                        // Trimmed mean method cells
+                        <>
+                          {judges.map((judge) => {
+                            const score = judgeScores[judge.id]?.[contestant.id] || 0
+                            const allScores = getAllJudgeScores(contestant.id).sort((a, b) => a - b)
+                            const trimCount = Math.floor(
+                              (((competitionSettings.ranking.trimPercentage || 20) / 100) * allScores.length) / 2,
+                            )
+
+                            // Determine if this score is trimmed (either too high or too low)
+                            const isTrimmed =
+                              score > 0 &&
+                              (allScores.indexOf(score) < trimCount ||
+                                allScores.indexOf(score) >= allScores.length - trimCount)
+
+                            return (
+                              <TableCell
+                                key={`score-${judge.id}`}
+                                className={`text-center align-middle ${isTrimmed ? "text-muted-foreground line-through" : ""}`}
+                              >
+                                {score > 0 ? score.toFixed(2) : "-"}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center align-middle font-medium">
+                            {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                          </TableCell>
+                        </>
+                      ) : rankingMethod === "borda" ? (
+                        // Borda count method cells
+                        <>
+                          {judges.map((judge) => {
+                            const rank = judgeRankings[judge.id]?.[contestant.id] || "-"
+                            // Calculate Borda points (contestantCount - rank + 1)
+                            const bordaPoints = typeof rank === "number" ? contestantsGroup.length - rank + 1 : "-"
+
+                            return (
+                              <TableCell key={`rank-${judge.id}`} className="text-center align-middle">
+                                {typeof rank === "number" ? (
+                                  <>
+                                    {rank.toFixed(2)}
+                                    <div className="text-xs text-muted-foreground">
+                                      ({typeof bordaPoints === "number" ? bordaPoints.toFixed(0) : "-"} pts)
+                                    </div>
+                                  </>
+                                ) : (
+                                  rank
+                                )}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center align-middle font-medium">
+                            {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                          </TableCell>
+                        </>
+                      ) : rankingMethod === "avg" ? (
+                        // Average method cells
+                        <>
+                          {judges.map((judge) => {
+                            const score = judgeScores[judge.id]?.[contestant.id] || 0
+                            return (
+                              <TableCell key={`score-${judge.id}`} className="text-center align-middle">
+                                {score > 0 ? score.toFixed(2) : "-"}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center align-middle font-medium">
+                            {rankings[contestant.id]?.score ? rankings[contestant.id].score.toFixed(2) : "-"}
+                          </TableCell>
+                        </>
                       ) : (
+                        // Default (rank-avg-rank) method cells
                         <>
                           {judges.map((judge) => {
                             const score = judgeScores[judge.id]?.[contestant.id] || 0
@@ -583,9 +781,12 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                         </>
                       )}
 
-                      <TableCell className="text-center align-middle">
-                        {avgRank > 0 ? avgRank.toFixed(2) : "-"}
-                      </TableCell>
+                      {/* Only show Average Rank for rank-avg-rank method */}
+                      {rankingMethod === "rank-avg-rank" && (
+                        <TableCell className="text-center align-middle">
+                          {avgRank > 0 ? avgRank.toFixed(2) : "-"}
+                        </TableCell>
+                      )}
 
                       <TableCell className="text-center font-bold align-middle bg-primary/5">
                         {rankings[contestant.id]?.rank ? rankings[contestant.id].rank.toFixed(2) : "-"}
@@ -605,7 +806,15 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                     {isExpanded && (
                       <TableRow className={`${rowClass} border-t-0`}>
                         <TableCell
-                          colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                          colSpan={
+                            rankingMethod === "avg-rank"
+                              ? criteria.length + 6
+                              : rankingMethod === "weighted"
+                                ? criteria.length + 5
+                                : rankingMethod === "rank-avg-rank"
+                                  ? 5 + judges.length * 2
+                                  : 4 + judges.length
+                          }
                           className="p-0"
                         >
                           <div className="p-4 bg-muted/5 border-t border-dashed">
@@ -705,10 +914,45 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                 Ranking Calculation ({competitionSettings.ranking.method})
                               </h5>
                               {competitionSettings.ranking.method === "avg" && (
-                                <p className="text-sm">
-                                  Simple average of all judges' scores:{" "}
-                                  {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
-                                </p>
+                                <div className="text-sm space-y-3">
+                                  <p>The average method calculates the simple arithmetic mean of all judges' scores:</p>
+
+                                  <div className="p-3 bg-muted/30 rounded-md">
+                                    <p className="font-medium">
+                                      Formula: Average = (Sum of Scores) / (Number of Judges)
+                                    </p>
+                                    <div className="mt-2">
+                                      <p>
+                                        Scores from judges:{" "}
+                                        {judges
+                                          .map((judge) => {
+                                            const score = judgeScores[judge.id]?.[contestant.id] || 0
+                                            return score > 0 ? score.toFixed(2) : "-"
+                                          })
+                                          .join(", ")}
+                                      </p>
+                                      <p>Sum of scores: {totalScores[contestant.id]?.toFixed(2) || "0.00"}</p>
+                                      <p>
+                                        Number of judges with scores:{" "}
+                                        {
+                                          judges.filter((judge) => (judgeScores[judge.id]?.[contestant.id] || 0) > 0)
+                                            .length
+                                        }
+                                      </p>
+                                      <p className="font-medium mt-1">
+                                        Average score:{" "}
+                                        {avgScores[contestant.id] > 0 ? avgScores[contestant.id].toFixed(2) : "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    <p>
+                                      Note: The average method treats all scores equally and can be influenced by
+                                      outliers.
+                                    </p>
+                                  </div>
+                                </div>
                               )}
                               {competitionSettings.ranking.method === "avg-rank" && (
                                 <p className="text-sm">
@@ -735,59 +979,340 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                 </div>
                               )}
                               {competitionSettings.ranking.method === "weighted" && (
-                                <div className="text-sm">
-                                  <p>Criteria are weighted differently:</p>
-                                  <ul className="list-disc list-inside">
-                                    {criteria.map((criterion) => {
-                                      const avgScore = calculateAvgCriterionScore(
-                                        scores,
-                                        segmentId,
-                                        contestant.id,
-                                        judges,
-                                        criterion.id,
-                                      )
-                                      const weight = typeof criterion.weight === "number" ? criterion.weight : 1
-                                      const weightedScore = roundToTwoDecimals(avgScore * weight)
+                                <div className="text-sm space-y-3">
+                                  <p>The weighted method applies different weights to each criterion:</p>
 
-                                      return (
-                                        <li key={criterion.id}>
-                                          {criterion.name}: {weight} × {avgScore.toFixed(2)} ={" "}
-                                          {weightedScore.toFixed(2)}
-                                        </li>
-                                      )
-                                    })}
-                                  </ul>
-                                </div>
-                              )}
-                              {competitionSettings.ranking.method === "trimmed" && (
-                                <div className="text-sm">
-                                  <p>
-                                    Trimmed mean (removing {competitionSettings.ranking.trimPercentage}% of extreme
-                                    scores):
-                                  </p>
-                                  <p>
-                                    Original scores:{" "}
-                                    {judges
-                                      .map((judge) => {
-                                        const total = getJudgeTotalScore(scores, segmentId, contestant.id, judge.id)
-                                        return total > 0 ? total.toFixed(2) : null
-                                      })
-                                      .filter(Boolean)
-                                      .join(", ")}
-                                  </p>
-                                  <p>After trimming: {rankings[contestant.id]?.score?.toFixed(2) || "-"}</p>
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full border-collapse">
+                                      <thead>
+                                        <tr className="bg-muted/30">
+                                          <th className="px-3 py-2 text-left">Criterion</th>
+                                          <th className="px-3 py-2 text-center">Weight</th>
+                                          <th className="px-3 py-2 text-center">Avg Score</th>
+                                          <th className="px-3 py-2 text-center">Weighted Score</th>
+                                          <th className="px-3 py-2 text-center">Contribution %</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {criteria.map((criterion) => {
+                                          const avgScore = calculateAvgCriterionScore(
+                                            scores,
+                                            segmentId,
+                                            contestant.id,
+                                            judges,
+                                            criterion.id,
+                                          )
+                                          const weight = typeof criterion.weight === "number" ? criterion.weight : 1
+                                          const weightedScore = roundToTwoDecimals(avgScore * weight)
+
+                                          // Calculate total weight for percentage calculation
+                                          const totalWeight = criteria.reduce(
+                                            (sum, c) => sum + (typeof c.weight === "number" ? c.weight : 1),
+                                            0,
+                                          )
+
+                                          // Calculate contribution percentage
+                                          const contributionPct = roundToTwoDecimals((weight / totalWeight) * 100)
+
+                                          return (
+                                            <tr key={criterion.id} className="border-t border-gray-200">
+                                              <td className="px-3 py-2">{criterion.name}</td>
+                                              <td className="px-3 py-2 text-center">{weight}</td>
+                                              <td className="px-3 py-2 text-center">{avgScore.toFixed(2)}</td>
+                                              <td className="px-3 py-2 text-center">{weightedScore.toFixed(2)}</td>
+                                              <td className="px-3 py-2 text-center">{contributionPct}%</td>
+                                            </tr>
+                                          )
+                                        })}
+                                        <tr className="border-t border-gray-200 font-medium bg-muted/20">
+                                          <td className="px-3 py-2">Total</td>
+                                          <td className="px-3 py-2 text-center">
+                                            {criteria.reduce(
+                                              (sum, c) => sum + (typeof c.weight === "number" ? c.weight : 1),
+                                              0,
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">-</td>
+                                          <td className="px-3 py-2 text-center">
+                                            {roundToTwoDecimals(
+                                              criteria.reduce((sum, criterion) => {
+                                                const avgScore = calculateAvgCriterionScore(
+                                                  scores,
+                                                  segmentId,
+                                                  contestant.id,
+                                                  judges,
+                                                  criterion.id,
+                                                )
+                                                const weight =
+                                                  typeof criterion.weight === "number" ? criterion.weight : 1
+                                                return sum + avgScore * weight
+                                              }, 0),
+                                            ).toFixed(2)}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">100%</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+
+                                  <div className="mt-3">
+                                    <p className="font-medium mb-2">Visualization of Weighted Contributions:</p>
+                                    <div className="flex items-end h-24 gap-1">
+                                      {criteria.map((criterion) => {
+                                        const avgScore = calculateAvgCriterionScore(
+                                          scores,
+                                          segmentId,
+                                          contestant.id,
+                                          judges,
+                                          criterion.id,
+                                        )
+                                        const weight = typeof criterion.weight === "number" ? criterion.weight : 1
+                                        const weightedScore = roundToTwoDecimals(avgScore * weight)
+
+                                        // Calculate total weighted score for percentage calculation
+                                        const totalWeightedScore = criteria.reduce((sum, c) => {
+                                          const cAvgScore = calculateAvgCriterionScore(
+                                            scores,
+                                            segmentId,
+                                            contestant.id,
+                                            judges,
+                                            c.id,
+                                          )
+                                          const cWeight = typeof c.weight === "number" ? c.weight : 1
+                                          return sum + cAvgScore * cWeight
+                                        }, 0)
+
+                                        // Calculate height percentage (max 100%)
+                                        const heightPct = Math.min(
+                                          100,
+                                          Math.max(5, (weightedScore / totalWeightedScore) * 100 * 2),
+                                        )
+
+                                        // Generate a consistent color based on criterion name
+                                        const colorIndex = criteria.findIndex((c) => c.id === criterion.id) % 5
+                                        const colors = [
+                                          "bg-blue-500",
+                                          "bg-green-500",
+                                          "bg-yellow-500",
+                                          "bg-purple-500",
+                                          "bg-pink-500",
+                                        ]
+
+                                        return (
+                                          <div key={criterion.id} className="flex flex-col items-center">
+                                            <div
+                                              className={`${colors[colorIndex]} rounded-t w-12 flex items-end justify-center text-white text-xs font-medium`}
+                                              style={{ height: `${heightPct}%` }}
+                                            >
+                                              {Math.round((weightedScore / totalWeightedScore) * 100)}%
+                                            </div>
+                                            <div
+                                              className="text-xs mt-1 w-12 text-center truncate"
+                                              title={criterion.name}
+                                            >
+                                              {criterion.name.length > 8
+                                                ? criterion.name.substring(0, 8) + "..."
+                                                : criterion.name}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 p-3 bg-muted/20 rounded-md">
+                                    <p className="font-medium">Final Calculation:</p>
+                                    <p>
+                                      Weighted Average = (Sum of Weighted Scores) / (Sum of Weights) ={" "}
+                                      {rankings[contestant.id]?.score.toFixed(2)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      Note: The final rank is determined by comparing this weighted average with other
+                                      contestants.
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                               {competitionSettings.ranking.method === "median" && (
-                                <p className="text-sm">
-                                  Median score: {rankings[contestant.id]?.score?.toFixed(2) || "-"}
-                                </p>
+                                <div className="text-sm space-y-3">
+                                  <p>The median method uses the middle value of all judges' scores:</p>
+
+                                  <div className="p-3 bg-muted/30 rounded-md">
+                                    <p className="font-medium">How the median is calculated:</p>
+                                    <div className="mt-2">
+                                      <p>
+                                        Original scores:{" "}
+                                        {getAllJudgeScores(contestant.id)
+                                          .map((score) => score.toFixed(2))
+                                          .join(", ")}
+                                      </p>
+
+                                      <p>
+                                        Sorted scores:{" "}
+                                        {[...getAllJudgeScores(contestant.id)]
+                                          .sort((a, b) => a - b)
+                                          .map((score) => score.toFixed(2))
+                                          .join(", ")}
+                                      </p>
+
+                                      <div className="flex items-center gap-1 mt-2 overflow-x-auto">
+                                        {[...getAllJudgeScores(contestant.id)]
+                                          .sort((a, b) => a - b)
+                                          .map((score, index, array) => {
+                                            const isMiddle =
+                                              array.length % 2 === 1
+                                                ? index === Math.floor(array.length / 2)
+                                                : index === array.length / 2 - 1 || index === array.length / 2
+
+                                            return (
+                                              <div
+                                                key={index}
+                                                className={`px-3 py-2 border ${isMiddle ? "bg-green-100 border-green-500 font-medium" : "bg-muted/10"} rounded-md text-center min-w-[60px]`}
+                                              >
+                                                {score.toFixed(2)}
+                                                {isMiddle && <div className="text-xs text-green-700">median</div>}
+                                              </div>
+                                            )
+                                          })}
+                                      </div>
+
+                                      <p className="font-medium mt-3">
+                                        Median score: {rankings[contestant.id]?.score?.toFixed(2) || "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    <p>
+                                      Note: The median is less affected by outliers than the average. If there are an
+                                      even number of scores, the median is the average of the two middle scores.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {competitionSettings.ranking.method === "trimmed" && (
+                                <div className="text-sm space-y-3">
+                                  <p>The trimmed mean removes extreme scores before calculating the average:</p>
+
+                                  <div className="p-3 bg-muted/30 rounded-md">
+                                    <p className="font-medium">How the trimmed mean is calculated:</p>
+                                    <div className="mt-2">
+                                      <p>
+                                        Original scores:{" "}
+                                        {getAllJudgeScores(contestant.id)
+                                          .map((score) => score.toFixed(2))
+                                          .join(", ")}
+                                      </p>
+
+                                      <p>
+                                        Sorted scores:{" "}
+                                        {[...getAllJudgeScores(contestant.id)]
+                                          .sort((a, b) => a - b)
+                                          .map((score) => score.toFixed(2))
+                                          .join(", ")}
+                                      </p>
+
+                                      {(() => {
+                                        const allScores = [...getAllJudgeScores(contestant.id)].sort((a, b) => a - b)
+                                        const trimPercentage = competitionSettings.ranking.trimPercentage || 20
+                                        const trimCount = Math.floor(((trimPercentage / 100) * allScores.length) / 2)
+
+                                        return (
+                                          <div className="flex items-center gap-1 mt-2 overflow-x-auto">
+                                            {allScores.map((score, index) => {
+                                              const isTrimmed =
+                                                index < trimCount || index >= allScores.length - trimCount
+
+                                              return (
+                                                <div
+                                                  key={index}
+                                                  className={`px-3 py-2 border ${isTrimmed ? "bg-red-50 border-red-200 text-red-500 line-through" : "bg-green-50 border-green-200"} rounded-md text-center min-w-[60px]`}
+                                                >
+                                                  {score.toFixed(2)}
+                                                  <div className="text-xs no-underline">
+                                                    {isTrimmed ? "trimmed" : "kept"}
+                                                  </div>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        )
+                                      })()}
+
+                                      <p className="font-medium mt-3">
+                                        Trimmed mean ({competitionSettings.ranking.trimPercentage}%):{" "}
+                                        {rankings[contestant.id]?.score?.toFixed(2) || "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    <p>
+                                      Note: The trimmed mean removes the highest and lowest{" "}
+                                      {competitionSettings.ranking.trimPercentage}% of scores, reducing the impact of
+                                      outliers while still using most of the data.
+                                    </p>
+                                  </div>
+                                </div>
                               )}
                               {competitionSettings.ranking.method === "borda" && (
-                                <p className="text-sm">
-                                  Borda count (points based on rank):{" "}
-                                  {rankings[contestant.id]?.score?.toFixed(2) || "-"}
-                                </p>
+                                <div className="text-sm space-y-3">
+                                  <p>The Borda count method assigns points based on ranks:</p>
+
+                                  <div className="p-3 bg-muted/30 rounded-md">
+                                    <p className="font-medium">How Borda count works:</p>
+                                    <p className="text-xs mt-1">
+                                      Formula: Points = (Number of contestants) - (Rank) + 1
+                                    </p>
+
+                                    <div className="mt-3 overflow-x-auto">
+                                      <table className="min-w-full border-collapse">
+                                        <thead>
+                                          <tr className="bg-muted/30">
+                                            <th className="px-3 py-2 text-left">Judge</th>
+                                            <th className="px-3 py-2 text-center">Rank Given</th>
+                                            <th className="px-3 py-2 text-center">Borda Points</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {judges.map((judge) => {
+                                            const rank = judgeRankings[judge.id]?.[contestant.id] || "-"
+                                            const bordaPoints =
+                                              typeof rank === "number" ? contestantsGroup.length - rank + 1 : "-"
+
+                                            return (
+                                              <tr key={judge.id} className="border-t border-gray-200">
+                                                <td className="px-3 py-2">{judge.name}</td>
+                                                <td className="px-3 py-2 text-center">
+                                                  {typeof rank === "number" ? rank.toFixed(2) : rank}
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                  {typeof bordaPoints === "number"
+                                                    ? bordaPoints.toFixed(2)
+                                                    : bordaPoints}
+                                                </td>
+                                              </tr>
+                                            )
+                                          })}
+                                          <tr className="border-t border-gray-200 font-medium bg-muted/20">
+                                            <td className="px-3 py-2">Total Borda Points</td>
+                                            <td className="px-3 py-2 text-center">-</td>
+                                            <td className="px-3 py-2 text-center">
+                                              {rankings[contestant.id]?.score?.toFixed(2) || "-"}
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    <p>
+                                      Note: The Borda count method rewards contestants who consistently rank well across
+                                      all judges, even if they don't get first place from any judge.
+                                    </p>
+                                  </div>
+                                </div>
                               )}
                               {competitionSettings.ranking.method === "custom" && (
                                 <p className="text-sm">
@@ -805,7 +1330,15 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={rankingMethod === "avg-rank" ? criteria.length + 6 : 4 + judges.length * 2}
+                  colSpan={
+                    rankingMethod === "avg-rank"
+                      ? criteria.length + 6
+                      : rankingMethod === "weighted"
+                        ? criteria.length + 5
+                        : rankingMethod === "rank-avg-rank"
+                          ? 5 + judges.length * 2
+                          : 4 + judges.length
+                  }
                   className="text-center py-4 text-muted-foreground"
                 >
                   No contestants in this category
