@@ -252,7 +252,7 @@ const Dashboard = () => {
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
           <span className="inline-flex items-center gap-2 text-2xl font-bold">
-            {isCreatingNew ? "New Competition" : "Setup Competition"}
+            {isCreatingNew ? "New Competition" : "Competition Management"}
           </span>
           <div className="flex items-center gap-4">
             {competitions.length > 0 && (
