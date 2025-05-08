@@ -69,7 +69,7 @@ const rankingMethods = [
 ]
 
 export function RankingConfiguration() {
-  const { competitionSettings, updateRankingConfig } = useCompetitionStore()
+  const { competitionSettings, updateRankingConfig, saveCompetition, isSaving } = useCompetitionStore()
   const ranking = competitionSettings.ranking || { method: "avg", tiebreaker: "highest-score" }
 
   // State for the wizard
@@ -83,7 +83,7 @@ export function RankingConfiguration() {
   const [customFormula, setCustomFormula] = useState(ranking.customFormula || "")
 
   // Handle saving the configuration
-  const handleSave = () => {
+  const handleSave = async () => {
     const config = {
       method: selectedMethod as RankingMethod,
       trimPercentage,
@@ -94,8 +94,16 @@ export function RankingConfiguration() {
       customFormula,
     }
 
+    // Update the ranking configuration in the store
     updateRankingConfig(config)
-    toast.success("Ranking configuration saved.");
+
+    // Save the entire competition to the database
+    try {
+      await saveCompetition()
+      toast.success("Updated ranking configuration for this competition.")
+    } catch (error) {
+      toast.error("Configuration saved locally but failed to save to database.")
+    }
   }
 
   // Handle next step in wizard
@@ -391,8 +399,8 @@ export function RankingConfiguration() {
               <Button variant="outline" onClick={handlePrevious}>
                 Previous
               </Button>
-              <Button onClick={handleSave}>
-                Save Configuration <Save className="ml-2 h-4 w-4" />
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save Configuration"} <Save className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -536,4 +544,3 @@ export function RankingConfiguration() {
     </div>
   )
 }
-

@@ -1,12 +1,16 @@
 "use client"
 
+// Let's update the imports section to add the needed components
 import React, { useState, useCallback, useMemo } from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, HelpCircle, Info, BarChart2, LineChart, PieChart } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
-import { PrintResults } from "../print-results"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Slider } from "@/components/ui/slider"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Type definitions
 interface Contestant {
@@ -266,6 +270,59 @@ function calculateAvgRank(judgeRankings: AllJudgeRankings, contestantId: string)
   return rankCount > 0 ? roundToTwoDecimals(totalRank / rankCount) : 0
 }
 
+// Add a helper function to format a formula for display
+const formatFormula = (formula: string): string => {
+  // Replace common operations for better readability
+  return formula
+    .replace(/\*/g, " × ")
+    .replace(/\//g, " ÷ ")
+    .replace(/\+/g, " + ")
+    .replace(/-/g, " - ")
+    .replace(/Math\.min/g, "min")
+    .replace(/Math\.max/g, "max")
+    .replace(/Math\.sqrt/g, "√")
+    .replace(/Math\.pow$$([^,]+), ?([^)]+)$$/g, "$1^$2")
+}
+
+// Add a function to parse and evaluate formula steps
+const evaluateFormulaSteps = (
+  formula: string,
+  variables: Record<string, number>,
+): { steps: Array<{ description: string; result: number }>; finalResult: number } => {
+  // This is a simplified parser. For complex formulas, we'd need a more robust approach.
+  const steps: Array<{ description: string; result: number }> = []
+  let processedFormula = formula
+
+  // Replace variables with their values
+  Object.entries(variables).forEach(([name, value]) => {
+    const regex = new RegExp(name, "g")
+    processedFormula = processedFormula.replace(regex, value.toString())
+    steps.push({
+      description: `Replace ${name} with its value ${value.toFixed(2)}`,
+      result: value,
+    })
+  })
+
+  // Try to evaluate the formula
+  try {
+    // eslint-disable-next-line no-new-func
+    const evalFunction = new Function(`return ${processedFormula}`)
+    const result = evalFunction()
+    steps.push({
+      description: `Evaluate the expression: ${formatFormula(processedFormula)}`,
+      result: roundToTwoDecimals(result),
+    })
+    return { steps, finalResult: roundToTwoDecimals(result) }
+  } catch (error) {
+    console.error("Error evaluating formula:", error)
+    steps.push({
+      description: `Error evaluating: ${formatFormula(processedFormula)}`,
+      result: 0,
+    })
+    return { steps, finalResult: 0 }
+  }
+}
+
 interface Props {
   segmentId: string
 }
@@ -344,18 +401,89 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Final Rankings</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Using <span className="font-medium">{competitionSettings.ranking.method.toUpperCase()}</span> ranking method
-            with <span className="font-medium">{competitionSettings.ranking.tiebreaker}</span> tiebreaker
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <PrintResults className="float-right" key={`${segment?.id}-${refreshKey}`} segmentId={segment?.id} />
-        </div>
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold mb-2">Final Rankings</h2>
+        <Popover>
+          <PopoverTrigger>
+            <HelpCircle size={16} className="text-muted-foreground" />
+          </PopoverTrigger>
+          <PopoverContent className="w-80">
+            <div className="space-y-2">
+              <h3 className="font-medium">About Rankings</h3>
+              <p className="text-sm text-muted-foreground">
+                This table shows the final rankings calculated using the selected method. Click the arrow next to each
+                contestant to see detailed breakdowns and visualizations.
+              </p>
+              <h4 className="text-sm font-medium mt-2">Available Methods:</h4>
+              <ul className="text-xs space-y-1">
+                <li>
+                  <span className="font-medium">AVG</span> - Simple average of scores
+                </li>
+                <li>
+                  <span className="font-medium">MEDIAN</span> - Middle value of all scores
+                </li>
+                <li>
+                  <span className="font-medium">TRIMMED</span> - Average after removing extreme values
+                </li>
+                <li>
+                  <span className="font-medium">WEIGHTED</span> - Scores weighted by criteria importance
+                </li>
+                <li>
+                  <span className="font-medium">BORDA</span> - Points assigned based on ranks
+                </li>
+                <li>
+                  <span className="font-medium">CUSTOM</span> - User-defined formula
+                </li>
+              </ul>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
+
+      <p className="text-sm text-muted-foreground mb-4">
+        Using{" "}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className="font-medium underline decoration-dotted">
+              {competitionSettings.ranking.method.toUpperCase()}
+            </TooltipTrigger>
+            <TooltipContent>
+              {competitionSettings.ranking.method === "avg" && "Calculates the arithmetic mean of all judges' scores."}
+              {competitionSettings.ranking.method === "median" && "Uses the middle value from the set of all scores."}
+              {competitionSettings.ranking.method === "trimmed" &&
+                `Removes the highest and lowest ${competitionSettings.ranking.trimPercentage || 20}% of scores before calculating the average.`}
+              {competitionSettings.ranking.method === "weighted" &&
+                "Applies weights to different criteria when calculating scores."}
+              {competitionSettings.ranking.method === "borda" &&
+                "Assigns points based on ranks (higher for better ranks)."}
+              {competitionSettings.ranking.method === "custom" &&
+                "Uses a custom mathematical formula to calculate scores."}
+              {competitionSettings.ranking.method === "avg-rank" &&
+                "Calculates total scores, then ranks contestants accordingly."}
+              {competitionSettings.ranking.method === "rank-avg-rank" &&
+                "Converts each judge's scores to ranks, then averages those ranks."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>{" "}
+        ranking method with{" "}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className="font-medium underline decoration-dotted">
+              {competitionSettings.ranking.tiebreaker}
+            </TooltipTrigger>
+            <TooltipContent>
+              {competitionSettings.ranking.tiebreaker === "none" && "No tiebreaker is applied."}
+              {competitionSettings.ranking.tiebreaker === "highest-score" &&
+                "Breaks ties by comparing the highest individual score received."}
+              {competitionSettings.ranking.tiebreaker === "head-to-head" &&
+                "Breaks ties by comparing how many judges ranked one contestant higher than the other."}
+              {competitionSettings.ranking.tiebreaker === "specific-criteria" &&
+                "Breaks ties using a specific criterion's scores."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>{" "}
+        tiebreaker
+      </p>
 
       {separateByGender ? (
         <div className="space-y-6">
@@ -419,6 +547,160 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
   }, [contestantsGroup, rankings])
 
   const rankingMethod = competitionSettings.ranking.method
+
+  // Helper functions for calculating average and median scores
+  const calculateAverageScore = (scores: number[]): number => {
+    if (scores.length === 0) return 0
+    const sum = scores.reduce((acc, score) => acc + score, 0)
+    return roundToTwoDecimals(sum / scores.length)
+  }
+
+  const calculateMedianScore = (scores: number[]): number => {
+    if (scores.length === 0) return 0
+    const sortedScores = [...scores].sort((a, b) => a - b)
+    const middle = Math.floor(sortedScores.length / 2)
+
+    if (sortedScores.length % 2 === 0) {
+      // Even number of scores, take the average of the two middle scores
+      return roundToTwoDecimals((sortedScores[middle - 1] + sortedScores[middle]) / 2)
+    } else {
+      // Odd number of scores, take the middle score
+      return roundToTwoDecimals(sortedScores[middle])
+    }
+  }
+
+  // Add this function in the RankingsTable component before the return statement
+  // (after the existing functions but before the if(!contestantsGroup) check):
+
+  const SimulationPanel = ({
+    contestant,
+    judges,
+    scores,
+    segmentId,
+    updateFormula,
+  }: {
+    contestant: Contestant
+    judges: Judge[]
+    scores: Scores
+    segmentId: string
+    updateFormula: (newFormula: string) => void
+  }) => {
+    const allScores = getAllJudgeScores(contestant.id)
+    const avg_score = calculateAverageScore(allScores)
+    const median_score = calculateMedianScore(allScores)
+    const min_score = allScores.length ? roundToTwoDecimals(Math.min(...allScores)) : 0
+    const max_score = allScores.length ? roundToTwoDecimals(Math.max(...allScores)) : 0
+    const judge_count = allScores.length
+
+    const [simulationValues, setSimulationValues] = useState({
+      avg_score,
+      median_score,
+      min_score,
+      max_score,
+      judge_count,
+    })
+
+    const handleSimulate = (variable: string, value: number[]) => {
+      setSimulationValues({
+        ...simulationValues,
+        [variable]: roundToTwoDecimals(value[0]),
+      })
+    }
+
+    // Define the sliders' min/max values
+    const sliderRanges = {
+      avg_score: [0, 10],
+      median_score: [0, 10],
+      min_score: [0, 10],
+      max_score: [0, 10],
+      judge_count: [1, 10],
+    }
+
+    // Custom formula update
+    const [customFormula, setCustomFormula] = useState(competitionSettings.ranking.customFormula || "avg_score")
+
+    const handleFormulaUpdate = () => {
+      updateFormula(customFormula)
+    }
+
+    return (
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Formula Simulation</CardTitle>
+          <CardDescription>Adjust values to see how they affect the formula result</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Object.entries(simulationValues).map(([key, value]) => (
+              <div key={key} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">
+                    {key.replace(/_/g, " ")}:<span className="ml-2 text-sm">{value.toFixed(2)}</span>
+                  </label>
+                  <div className="text-sm text-muted-foreground">
+                    Actual:{" "}
+                    {key === "avg_score"
+                      ? avg_score.toFixed(2)
+                      : key === "median_score"
+                        ? median_score.toFixed(2)
+                        : key === "min_score"
+                          ? min_score.toFixed(2)
+                          : key === "max_score"
+                            ? max_score.toFixed(2)
+                            : judge_count.toString()}
+                  </div>
+                </div>
+                <Slider
+                  defaultValue={[value]}
+                  max={sliderRanges[key as keyof typeof sliderRanges][1]}
+                  min={sliderRanges[key as keyof typeof sliderRanges][0]}
+                  step={key === "judge_count" ? 1 : 0.1}
+                  onValueChange={(val) => handleSimulate(key, val)}
+                />
+              </div>
+            ))}
+
+            <div className="space-y-2 pt-4 border-t">
+              <label className="text-sm font-medium">Custom Formula:</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customFormula}
+                  onChange={(e) => setCustomFormula(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <button
+                  onClick={handleFormulaUpdate}
+                  className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground"
+                >
+                  Apply
+                </button>
+              </div>
+
+              <div className="mt-4 bg-muted p-3 rounded-md">
+                <p className="text-sm font-medium">Simulated Result:</p>
+                <div className="mt-2">
+                  {evaluateFormulaSteps(customFormula, simulationValues).steps.map((step, i) => (
+                    <div key={i} className="text-sm py-1 border-b border-dashed border-gray-200 last:border-0">
+                      <span>{step.description}</span>
+                      {step.result !== undefined && (
+                        <span className="ml-2 font-mono text-xs bg-muted-foreground/10 px-1 py-0.5 rounded">
+                          = {typeof step.result === "number" ? step.result.toFixed(2) : step.result}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  <div className="mt-2 text-sm font-medium">
+                    Final Result: {evaluateFormulaSteps(customFormula, simulationValues).finalResult.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!contestantsGroup || contestantsGroup.length === 0 || !judges || judges.length === 0) {
     return (
@@ -1315,9 +1597,139 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                 </div>
                               )}
                               {competitionSettings.ranking.method === "custom" && (
-                                <p className="text-sm">
-                                  Custom formula: {competitionSettings.ranking.customFormula || "Not specified"}
-                                </p>
+                                <div className="text-sm space-y-3">
+                                  <p>The custom formula calculates scores based on a user-defined formula:</p>
+                                  <span className="flex items-center gap-1">
+                                    <Info className="h-4 w-4" />
+                                    Formula Breakdown
+                                  </span>
+                                  <div className="p-3 bg-muted/30 rounded-md">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium">Custom Formula:</p>
+                                      <div className="py-1 px-2 bg-primary/10 rounded font-mono text-sm">
+                                        {formatFormula(competitionSettings.ranking.customFormula || "avg_score")}
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-3">
+                                      <p className="text-sm font-medium mb-2">Variables used:</p>
+                                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                                        {(() => {
+                                          const allScores = getAllJudgeScores(contestant.id)
+                                          const avg_score = calculateAverageScore(allScores)
+                                          const median_score = calculateMedianScore(allScores)
+                                          const min_score = allScores.length
+                                            ? roundToTwoDecimals(Math.min(...allScores))
+                                            : 0
+                                          const max_score = allScores.length
+                                            ? roundToTwoDecimals(Math.max(...allScores))
+                                            : 0
+                                          const judge_count = allScores.length
+
+                                          const variables = [
+                                            {
+                                              name: "avg_score",
+                                              value: avg_score,
+                                              description: "Average of all scores",
+                                            },
+                                            {
+                                              name: "median_score",
+                                              value: median_score,
+                                              description: "Middle value of all scores",
+                                            },
+                                            {
+                                              name: "min_score",
+                                              value: min_score,
+                                              description: "Lowest score received",
+                                            },
+                                            {
+                                              name: "max_score",
+                                              value: max_score,
+                                              description: "Highest score received",
+                                            },
+                                            {
+                                              name: "judge_count",
+                                              value: judge_count,
+                                              description: "Number of judges who scored",
+                                            },
+                                          ]
+
+                                          return variables.map((variable) => (
+                                            <div
+                                              key={variable.name}
+                                              className="flex items-center gap-1 bg-muted/20 p-2 rounded"
+                                            >
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger>
+                                                    <div className="text-sm font-mono">
+                                                      {variable.name} = {variable.value.toFixed(2)}
+                                                    </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>{variable.description}</TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            </div>
+                                          ))
+                                        })()}
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                      <p className="text-sm font-medium mb-2">Calculation steps:</p>
+                                      {(() => {
+                                        const allScores = getAllJudgeScores(contestant.id)
+                                        const avg_score = calculateAverageScore(allScores)
+                                        const median_score = calculateMedianScore(allScores)
+                                        const min_score = allScores.length
+                                          ? roundToTwoDecimals(Math.min(...allScores))
+                                          : 0
+                                        const max_score = allScores.length
+                                          ? roundToTwoDecimals(Math.max(...allScores))
+                                          : 0
+                                        const judge_count = allScores.length
+
+                                        const variables = {
+                                          avg_score,
+                                          median_score,
+                                          min_score,
+                                          max_score,
+                                          judge_count,
+                                        }
+
+                                        const { steps, finalResult } = evaluateFormulaSteps(
+                                          competitionSettings.ranking.customFormula || "avg_score",
+                                          variables,
+                                        )
+
+                                        return (
+                                          <div className="space-y-2">
+                                            {steps.map((step, index) => (
+                                              <div
+                                                key={index}
+                                                className="bg-muted/10 p-2 rounded text-sm border-l-2 border-primary/50"
+                                              >
+                                                {step.description}
+                                                {step.result !== undefined && (
+                                                  <span className="ml-2 font-mono text-xs bg-muted-foreground/10 px-1 py-0.5 rounded">
+                                                    ={" "}
+                                                    {typeof step.result === "number"
+                                                      ? step.result.toFixed(2)
+                                                      : step.result}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+
+                                            <div className="bg-primary/10 p-2 rounded text-sm font-medium border-l-2 border-primary">
+                                              Final result: {finalResult.toFixed(2)}
+                                            </div>
+                                          </div>
+                                        )
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>
