@@ -12,6 +12,7 @@ export interface Criterion {
   maxScore: number
   isPrejudged?: boolean
   prejudgedBy?: string
+	weight?: number
 }
 
 export interface Segment {
