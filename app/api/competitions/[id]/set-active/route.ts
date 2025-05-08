@@ -12,9 +12,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const userId = user.id
-    // Ensure params.id is properly handled
-    const id = params?.id
-    const competitionId = Number.parseInt(id)
+
+    // Get the ID directly from the URL instead of using params
+    const pathParts = request.nextUrl.pathname.split("/")
+    const idFromPath = pathParts[pathParts.length - 2] // Get the ID from the URL path
+
+    if (!idFromPath) {
+      return NextResponse.json({ error: "Missing competition ID" }, { status: 400 })
+    }
+
+    const competitionId = Number.parseInt(idFromPath)
 
     if (isNaN(competitionId)) {
       return NextResponse.json({ error: "Invalid competition ID" }, { status: 400 })
