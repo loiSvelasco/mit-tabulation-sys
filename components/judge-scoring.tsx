@@ -351,7 +351,8 @@ const EnhancedJudgeScoring = () => {
                         <>
                           <Button
                             size="icon"
-                            variant="ghost"
+                            variant="outline"
+                            className="bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700"
                             onClick={() => handleEditClickContestant(contestant.id, contestant.name)}
                           >
                             <EditIcon size={16} />
@@ -360,7 +361,8 @@ const EnhancedJudgeScoring = () => {
                       )}
                       <Button
                         size="icon"
-                        variant="destructive"
+                        variant="outline"
+                        className="bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 ml-2"
                         onClick={() => setDeleteContestant({ id: contestant.id, name: contestant.name })}
                       >
                         <Trash2Icon size={16} />
@@ -463,7 +465,8 @@ const EnhancedJudgeScoring = () => {
                         <>
                           <Button
                             size="icon"
-                            variant="ghost"
+                            variant="outline"
+                            className="bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700 mr-2"
                             onClick={() => handleEditClickJudge(judge.id, judge.name)}
                           >
                             <EditIcon size={16} />
@@ -472,7 +475,8 @@ const EnhancedJudgeScoring = () => {
                       )}
                       <Button
                         size="icon"
-                        variant="destructive"
+                        variant="outline"
+                        className="bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700"
                         onClick={() => setDeleteJudge({ id: judge.id, name: judge.name })}
                       >
                         <Trash2Icon size={16} />

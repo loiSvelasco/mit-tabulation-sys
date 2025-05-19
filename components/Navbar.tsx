@@ -43,7 +43,7 @@ const Navbar = () => {
 				<a className="text-xl ml-4"><strong>rankx</strong> - an advanced Tabulation System</a>
 			</div>
 			<div className="flex-none gap-2">
-				<Button type="button" onClick={handleLogout}>
+				<Button type="button" variant="outline" onClick={handleLogout}>
 					<LogOut /> Sign Out
 				</Button>
 
@@ -77,13 +77,13 @@ const Navbar = () => {
 						</svg>
 				</label> */}
 
-				<div className="dropdown dropdown-end mr-4">
+				{/* <div className="dropdown dropdown-end mr-4">
 					<div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
 						<div className="w-10 rounded-full">
 							<img alt="User Profile" src={session?.user?.image || "https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"} />
 						</div>
 					</div>
-				</div>
+				</div> */}
 			</div>
 		</div>
 	);

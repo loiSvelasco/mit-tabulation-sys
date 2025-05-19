@@ -4,6 +4,7 @@ survey.md
 TODO*.txt
 /public/uploads/contestants/
 /scripts/
+/mermaid
 # dependencies
 /node_modules
 /.pnp

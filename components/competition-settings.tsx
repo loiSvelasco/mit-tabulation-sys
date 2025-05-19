@@ -306,7 +306,7 @@ const CompetitionSettings = () => {
                           onKeyDown={handleSegmentEditKeyDown}
                           className="max-w-xs"
                         />
-                        <Button size="icon" variant="secondary" onClick={handleSaveSegmentClick}>
+                        <Button size="icon" variant="ghost" onClick={handleSaveSegmentClick}>
                           <SaveIcon size={16} />
                         </Button>
                         <Button size="icon" variant="ghost" onClick={handleCancelSegmentClick}>
@@ -318,7 +318,8 @@ const CompetitionSettings = () => {
                         <h3 className="text-lg font-semibold">{segment.name}</h3>
                         <Button
                           size="icon"
-                          variant="ghost"
+                          variant="outline"
+                          className="bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700"
                           onClick={() => handleEditSegmentClick(segment.id, segment.name)}
                         >
                           <EditIcon size={16} />
@@ -327,8 +328,8 @@ const CompetitionSettings = () => {
                     )}
                     <Button
                       onClick={() => setDeleteSegment({ id: segment.id, name: segment.name })}
-                      className="float-right"
-                      variant="ghost"
+                      className="float-right bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700"
+                      variant="outline"
                     >
                       <Trash2 /> Remove Segment
                     </Button>
@@ -585,17 +586,19 @@ const CompetitionSettings = () => {
                                   </Button>
                                 </>
                               ) : (
-                                <>
+                                <div className="flex space-x-2">
                                   <Button
                                     size="icon"
-                                    variant="ghost"
+                                    variant="outline"
+                                    className="bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700"
                                     onClick={() => handleEditCriterionClick(segment.id, criterion)}
                                   >
                                     <EditIcon size={16} />
                                   </Button>
                                   <Button
                                     size="icon"
-                                    variant="ghost"
+                                    variant="outline"
+                                    className="bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700"
                                     onClick={() =>
                                       setDeleteCriterion({
                                         segmentId: segment.id,
@@ -606,7 +609,7 @@ const CompetitionSettings = () => {
                                   >
                                     <Trash2 size={16} />
                                   </Button>
-                                </>
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
