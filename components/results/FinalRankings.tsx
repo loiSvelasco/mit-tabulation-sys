@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PrintResults } from "../print-results"
 
 // Type definitions
 interface Contestant {
@@ -401,9 +402,10 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
 
   return (
     <div>
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold mb-2">Final Rankings</h2>
-        <Popover>
+      <div className="flex items-center gap-2 justify-between">
+        <div className="flex items-center gap-2">
+        <h2 className="flex text-lg font-semibold mb-2">Final Rankings</h2>
+          <Popover>
           <PopoverTrigger>
             <HelpCircle size={16} className="text-muted-foreground" />
           </PopoverTrigger>
@@ -438,6 +440,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
             </div>
           </PopoverContent>
         </Popover>
+        </div>
+        <PrintResults className="float-right" key={segment?.id} segmentId={segment?.id} />
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">
