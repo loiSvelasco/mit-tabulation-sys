@@ -155,4 +155,31 @@ export const createSettingsSlice: StateCreator<
     // Log the updated config after the state change
     console.log("Store: Updated ranking config is now:", get().competitionSettings.ranking)
   },
+
+  resetCompetition: () => {
+    set({
+      competitionSettings: {
+        name: "",
+        separateRankingByGender: false,
+        segments: [
+          {
+            id: "1",
+            name: "Segment 1",
+            advancingCandidates: 0,
+            criteria: [],
+          },
+        ],
+        ranking: {
+          method: "avg",
+          tiebreaker: "highest-score",
+          useSegmentWeights: false,
+        },
+      },
+      contestants: [],
+      judges: [],
+      scores: {},
+      // Keep the activeCriteria empty
+      activeCriteria: [],
+    });
+  },
 })

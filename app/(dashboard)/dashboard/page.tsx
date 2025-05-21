@@ -125,6 +125,9 @@ const Dashboard = () => {
     // Clear the selected competition ID in the store
     setSelectedCompetitionId(null)
 
+    // Reset all competition data to blank/default values
+    useCompetitionStore.getState().resetCompetition();
+
     // Set the creating new flag
     setIsCreatingNew(true)
 
