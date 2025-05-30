@@ -7,7 +7,7 @@ import FullPageLoader from "@/components/auth/loader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X, Tv2 } from "lucide-react"
+import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X, Tv2, Trophy } from "lucide-react"
 import CompetitionSettings from "@/components/competition-settings"
 import DataManagement from "@/components/data-management"
 import Results from "@/components/results"
@@ -255,7 +255,8 @@ const Dashboard = () => {
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
           <span className="inline-flex items-center gap-2 text-2xl font-bold">
-            {isCreatingNew ? "New Competition" : "Competition Management"}
+            <Trophy size={24} />
+            {isCreatingNew ? "New Competition" : "Setup Competition"}
           </span>
           <div className="flex items-center gap-4">
             {competitions.length > 0 && (
@@ -317,9 +318,15 @@ const Dashboard = () => {
               </Link>
             </Button> */}
 
-            <Button asChild>
+            {/* <Button asChild>
               <Link href="/dashboard/monitor-scoring" target="_blank">
                 <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Monitoring of Scores
+              </Link>
+            </Button> */}
+
+            <Button asChild>
+              <Link href="/dashboard/manage-competition" target="_blank">
+                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Manage Competition
               </Link>
             </Button>
 
@@ -347,7 +354,7 @@ const Dashboard = () => {
         )}
 
         <Tabs defaultValue="settings" className="w-full">
-          <TabsList className="grid grid-cols-5 mb-8">
+          <TabsList className="grid grid-cols-4 mb-8">
             <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="settings">
               Competition Settings
             </TabsTrigger>
@@ -357,9 +364,9 @@ const Dashboard = () => {
             <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="ranking">
               Ranking Configuration
             </TabsTrigger>
-            <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="results">
+            {/* <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="results">
               Results
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger className="data-[state=active]:font-bold data-[state=active]:bg-white" value="data">
               Data Management
             </TabsTrigger>
@@ -377,9 +384,9 @@ const Dashboard = () => {
             <RankingConfiguration />
           </TabsContent>
 
-          <TabsContent value="results">
+          {/* <TabsContent value="results">
             <Results />
-          </TabsContent>
+          </TabsContent> */}
 
           <TabsContent value="data">
             <DataManagement />
