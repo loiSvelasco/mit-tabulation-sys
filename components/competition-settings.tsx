@@ -240,7 +240,7 @@ const CompetitionSettings = () => {
       {/* Competition Details */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Competition Details</CardTitle>
+          <CardTitle className="text-2xl">Competition Name</CardTitle>
           <CardDescription>Set up the basic information about your competition</CardDescription>
         </CardHeader>
         <CardContent>
