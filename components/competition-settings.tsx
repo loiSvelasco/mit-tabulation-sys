@@ -74,9 +74,13 @@ const CompetitionSettings = () => {
 
   useEffect(() => {
     if (editingCriterion && criterionNameInputRef.current) {
-      criterionNameInputRef.current.focus()
+      // Only focus if we're just starting to edit (when criterionId changes)
+      const timeoutId = setTimeout(() => {
+        criterionNameInputRef.current?.focus()
+      }, 0)
+      return () => clearTimeout(timeoutId)
     }
-  }, [editingCriterion])
+  }, [editingCriterion?.criterionId]) // Only depend on criterionId, not the entire editingCriterion object
 
   const handleCompetitionNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCompetitionSettings({ ...competitionSettings, name: e.target.value })
