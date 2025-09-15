@@ -16,7 +16,9 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { usePolling } from "@/hooks/usePolling"
+import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
+import { SmoothTransition } from "@/components/ui/smooth-transition"
+import { SimpleLoading, SimpleActivityIndicator } from "@/components/ui/simple-loading"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -34,8 +36,8 @@ export default function MonitorScoring() {
   const { competitionSettings, contestants, judges, scores, activeCriteria, loadCompetition, selectedCompetitionId } =
     useCompetitionStore()
 
-  // Use polling for real-time updates
-  const { isPolling, lastUpdate, error, refresh, startPolling, stopPolling } = usePolling(competitionId, 5000)
+  // Use optimized polling for reliable updates (5 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 5000)
 
   // Initialize the component
   const initialize = useCallback(async () => {
@@ -697,17 +699,18 @@ export default function MonitorScoring() {
       </div>
 
       {/* Scoring Status */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Scoring Status</CardTitle>
-          <CardDescription>Detailed view of scoring status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="overview">
-            <TabsList className="mb-4 w-full">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              {activeCriteriaDetails.length > 0 && <TabsTrigger value="criteria">By Criteria</TabsTrigger>}
-            </TabsList>
+      <SimpleLoading isLoading={isUpdating}>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Scoring Status</CardTitle>
+            <CardDescription>Detailed view of scoring status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="overview">
+              <TabsList className="mb-4 w-full">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                {activeCriteriaDetails.length > 0 && <TabsTrigger value="criteria">By Criteria</TabsTrigger>}
+              </TabsList>
 
             <TabsContent value="overview">
               {competitionSettings?.separateRankingByGender ? (
@@ -774,6 +777,7 @@ export default function MonitorScoring() {
           </Tabs>
         </CardContent>
       </Card>
+      </SimpleLoading>
 
       {activeCriteriaDetails.length === 0 && (
         <Card>
@@ -791,6 +795,12 @@ export default function MonitorScoring() {
           </CardContent>
         </Card>
       )}
+
+      {/* Simple activity indicator */}
+      <SimpleActivityIndicator 
+        isActive={isUpdating} 
+        message="Updating data..."
+      />
     </div>
   )
 }

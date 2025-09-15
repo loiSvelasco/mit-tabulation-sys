@@ -17,6 +17,8 @@ import { toast } from "sonner"
 import { calculateSegmentScores } from "@/utils/rankingUtils"
 import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
+import { SmoothTransition } from "@/components/ui/smooth-transition"
+import { SimpleLoading, SimpleActivityIndicator } from "@/components/ui/simple-loading"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -139,8 +141,8 @@ export function Results() {
     console.log("Selected Competition ID from store:", selectedCompetitionId)
   }, [competitionSettings, selectedCompetitionId])
 
-  // Use optimized polling for updates (3 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 3000)
+  // Use optimized polling for reliable updates (5 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 5000)
 
   // Find the next segment ID
   const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)
@@ -198,10 +200,10 @@ export function Results() {
 
     try {
       // Get the number of contestants that should advance
-      const advancingCount = currentSegment.advancingCandidates || 0
+      const advancingCount = currentSegment?.advancingCandidates || 0
 
       if (advancingCount <= 0) {
-        toast.error(`Please set the number of advancing candidates for ${currentSegment.name} segment.`)
+        toast.error(`Please set the number of advancing candidates for ${currentSegment?.name || 'this'} segment.`)
         setIsSaving(false)
         startPolling()
         return
@@ -771,22 +773,30 @@ export function Results() {
       </AlertDialog>
 
       {/* Results Tabs */}
-      <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
-          <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
-          <TabsTrigger value="minor-awards">Minor Awards</TabsTrigger>
-        </TabsList>
-        <TabsContent value="final-rankings">
-          <FinalRankings segmentId={selectedSegmentId} />
-        </TabsContent>
-        <TabsContent value="criteria-scores">
-          <CriteriaScores segmentId={selectedSegmentId} />
-        </TabsContent>
-        <TabsContent value="minor-awards">
-          <MinorAwardsCalculator />
-        </TabsContent>
-      </Tabs>
+      <SimpleLoading isLoading={isUpdating}>
+        <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
+            <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
+            <TabsTrigger value="minor-awards">Minor Awards</TabsTrigger>
+          </TabsList>
+          <TabsContent value="final-rankings">
+            <FinalRankings segmentId={selectedSegmentId} />
+          </TabsContent>
+          <TabsContent value="criteria-scores">
+            <CriteriaScores segmentId={selectedSegmentId} />
+          </TabsContent>
+          <TabsContent value="minor-awards">
+            <MinorAwardsCalculator />
+          </TabsContent>
+        </Tabs>
+      </SimpleLoading>
+
+      {/* Simple activity indicator */}
+      <SimpleActivityIndicator 
+        isActive={isUpdating} 
+        message="Updating data..."
+      />
     </div>
   )
 }
