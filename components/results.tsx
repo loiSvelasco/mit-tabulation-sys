@@ -139,8 +139,8 @@ export function Results() {
     console.log("Selected Competition ID from store:", selectedCompetitionId)
   }, [competitionSettings, selectedCompetitionId])
 
-  // Use optimized polling for updates (10 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 10000)
+  // Use optimized polling for updates (3 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 3000)
 
   // Find the next segment ID
   const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)

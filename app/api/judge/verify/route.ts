@@ -12,17 +12,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the judge access record - make sure we're selecting judge_name
+    // Support both old format (ABC123) and new format (21-ABC123)
     const judgeAccess = (await query(
       `SELECT * FROM judge_competition_access 
        WHERE access_code = ? AND is_active = TRUE`,
       [accessCode],
     )) as any[]
 
-    if (!judgeAccess || judgeAccess.length === 0) {
+    // If not found with exact match, try to find by extracting competition ID from new format
+    let foundRecord = judgeAccess[0]
+    
+    if (!foundRecord && accessCode.includes('-')) {
+      const [competitionIdPart, codePart] = accessCode.split('-', 2)
+      const competitionId = parseInt(competitionIdPart, 10)
+      
+      if (!isNaN(competitionId) && codePart) {
+        // Try to find by competition ID and code part
+        const fallbackAccess = (await query(
+          `SELECT * FROM judge_competition_access 
+           WHERE competition_id = ? AND access_code LIKE ? AND is_active = TRUE`,
+          [competitionId, `%${codePart}`],
+        )) as any[]
+        
+        if (fallbackAccess.length > 0) {
+          foundRecord = fallbackAccess[0]
+          console.log(`Found judge using fallback search for competition ${competitionId}`)
+        }
+      }
+    }
+
+    if (!foundRecord) {
       return NextResponse.json({ success: false, message: "Invalid access code" }, { status: 401 })
     }
 
-    const judgeRecord = judgeAccess[0]
+    const judgeRecord = foundRecord
 
     // Add console log to debug
     console.log("Judge record from database:", judgeRecord)

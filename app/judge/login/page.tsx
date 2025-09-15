@@ -13,7 +13,38 @@ export default function JudgeLoginPage() {
   const [accessCode, setAccessCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [competitionContext, setCompetitionContext] = useState<{
+    competitionId: string
+    competitionName: string
+    judgeName: string
+  } | null>(null)
   const router = useRouter()
+
+  // Function to detect competition context from access code
+  const detectCompetitionContext = (code: string) => {
+    if (code.includes('-')) {
+      const [competitionId, judgeCode] = code.split('-', 2)
+      const competitionIdNum = parseInt(competitionId, 10)
+      
+      if (!isNaN(competitionIdNum) && judgeCode) {
+        return {
+          competitionId: competitionId,
+          competitionName: `Competition ${competitionId}`,
+          judgeCode: judgeCode
+        }
+      }
+    }
+    return null
+  }
+
+  // Update competition context when access code changes
+  const handleAccessCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value
+    setAccessCode(code)
+    
+    const context = detectCompetitionContext(code)
+    setCompetitionContext(context)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,12 +106,25 @@ export default function JudgeLoginPage() {
               <div className="space-y-2">
                 <Input
                   id="accessCode"
-                  placeholder="Enter your access code"
+                  placeholder="Enter your access code (e.g., 21-ABC123)"
                   value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value)}
+                  onChange={handleAccessCodeChange}
                   className="w-full"
                   required
                 />
+                {competitionContext && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="font-medium text-blue-800">
+                        Detected: {competitionContext.competitionName}
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      Judge Code: {competitionContext.judgeCode}
+                    </div>
+                  </div>
+                )}
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Logging in..." : "Login"}

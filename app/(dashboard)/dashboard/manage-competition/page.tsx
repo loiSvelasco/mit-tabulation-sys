@@ -6,9 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Monitor, Trophy } from "lucide-react"
 import MonitorScoring from "@/components/monitor-scoring"
 import Results from "@/components/results"
+import { getBestCompetitionId, saveCompetitionSelection } from "@/lib/competition-selection"
+import useCompetitionStore from "@/utils/useCompetitionStore"
 
 export default function ManageCompetition() {
   const [activeTab, setActiveTab] = useState("monitor")
+  const { selectedCompetitionId, loadCompetition } = useCompetitionStore()
 
   // Restore active tab on mount
   useEffect(() => {
@@ -17,6 +20,25 @@ export default function ManageCompetition() {
       setActiveTab(savedTab)
     }
   }, [])
+
+  // Initialize competition selection on mount
+  useEffect(() => {
+    const initializeCompetition = async () => {
+      if (!selectedCompetitionId) {
+        try {
+          const bestCompetitionId = await getBestCompetitionId()
+          if (bestCompetitionId) {
+            saveCompetitionSelection(bestCompetitionId, 'manage-competition')
+            await loadCompetition(bestCompetitionId)
+          }
+        } catch (error) {
+          console.error('Failed to initialize competition:', error)
+        }
+      }
+    }
+
+    initializeCompetition()
+  }, [selectedCompetitionId, loadCompetition])
 
   // Save active tab when it changes
   const handleTabChange = (value: string) => {

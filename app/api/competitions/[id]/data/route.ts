@@ -39,6 +39,25 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
             // Parse the JSON data from the database
             const competitionData = JSON.parse(competition.competition_data || "{}")
 
+            // Fetch access codes for judges from judge_competition_access table
+            const accessCodes = await query(
+              `SELECT judge_id, access_code, judge_name FROM judge_competition_access 
+               WHERE competition_id = ? AND is_active = TRUE`,
+              [competitionId]
+            ) as any[]
+
+            // Update judges with their actual access codes and names from database
+            if (competitionData.judges && Array.isArray(competitionData.judges)) {
+              competitionData.judges = competitionData.judges.map((judge: any) => {
+                const accessRecord = accessCodes.find(ac => ac.judge_id === judge.id)
+                return {
+                  ...judge,
+                  accessCode: accessRecord?.access_code || judge.accessCode,
+                  name: accessRecord?.judge_name || judge.name
+                }
+              })
+            }
+
             return NextResponse.json(competitionData, { status: 200 })
           } else {
             console.log("Judge does not have access to this competition:", judgeUser.competitionId, "vs", competitionId)
@@ -73,6 +92,25 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     // Parse the JSON data from the database
     const competitionData = JSON.parse(competition.competition_data || "{}")
+
+    // Fetch access codes for judges from judge_competition_access table
+    const accessCodes = await query(
+      `SELECT judge_id, access_code, judge_name FROM judge_competition_access 
+       WHERE competition_id = ? AND is_active = TRUE`,
+      [competitionId]
+    ) as any[]
+
+    // Update judges with their actual access codes and names from database
+    if (competitionData.judges && Array.isArray(competitionData.judges)) {
+      competitionData.judges = competitionData.judges.map((judge: any) => {
+        const accessRecord = accessCodes.find(ac => ac.judge_id === judge.id)
+        return {
+          ...judge,
+          accessCode: accessRecord?.access_code || judge.accessCode,
+          name: accessRecord?.judge_name || judge.name
+        }
+      })
+    }
 
     return NextResponse.json(competitionData, { status: 200 })
   } catch (error) {

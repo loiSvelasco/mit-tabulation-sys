@@ -20,6 +20,7 @@ import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { getBestCompetitionId, saveCompetitionSelection, setActiveCompetition } from "@/lib/competition-selection"
 
 export default function MonitorScoring() {
   const router = useRouter()
@@ -49,10 +50,10 @@ export default function MonitorScoring() {
   // Add a ref to track previous active criteria for comparison
   const previousActiveCriteriaRef = useRef<string>("")
 
-  // Use optimized polling for real-time updates (10 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 10000)
+  // Use optimized polling for real-time updates (3 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 3000)
 
-  // Initialize the component - load the active competition
+  // Initialize the component - load the best competition
   const initialize = useCallback(async () => {
     // Skip if already initialized
     if (isInitialized) return
@@ -60,50 +61,29 @@ export default function MonitorScoring() {
     setIsInitializing(true)
 
     try {
-      setDebug((prev) => ({ ...prev, initStatus: "loading", initMessage: "Finding active competition..." }))
+      setDebug((prev) => ({ ...prev, initStatus: "loading", initMessage: "Finding best competition..." }))
 
-      // Step 1: Try to find the active competition
-      const competitionsResponse = await fetch("/api/competitions")
+      // Use unified competition selection logic
+      const bestCompetitionId = await getBestCompetitionId()
 
-      if (!competitionsResponse.ok) {
-        throw new Error("Failed to fetch competitions")
+      if (!bestCompetitionId) {
+        throw new Error("No competitions found. Please create a competition first.")
       }
 
-      const competitions = await competitionsResponse.json()
-      const activeCompetition = competitions.find((comp: any) => comp.is_active)
+      setCompetitionId(bestCompetitionId)
+      setDebug((prev) => ({
+        ...prev,
+        initMessage: `Using competition ID: ${bestCompetitionId}`,
+      }))
 
-      if (!activeCompetition) {
-        // If no active competition, check if there are any competitions
-        if (competitions.length > 0) {
-          // Set the first competition as active
-          const firstCompId = competitions[0].id
-          setCompetitionId(firstCompId)
-          setDebug((prev) => ({
-            ...prev,
-            initMessage: `No active competition found. Using first competition (ID: ${firstCompId})`,
-          }))
+      // Save the selection with context
+      saveCompetitionSelection(bestCompetitionId, 'monitor-scoring')
 
-          // Set it as active in the database
-          await fetch(`/api/competitions/${firstCompId}/set-active`, {
-            method: "POST",
-          })
+      // Set it as active in the database
+      await setActiveCompetition(bestCompetitionId)
 
-          // Load the competition
-          await loadCompetition(firstCompId)
-        } else {
-          throw new Error("No competitions found. Please create a competition first.")
-        }
-      } else {
-        // Use the active competition
-        setCompetitionId(activeCompetition.id)
-        setDebug((prev) => ({
-          ...prev,
-          initMessage: `Found active competition: ${activeCompetition.name} (ID: ${activeCompetition.id})`,
-        }))
-
-        // Load the competition
-        await loadCompetition(activeCompetition.id)
-      }
+      // Load the competition
+      await loadCompetition(bestCompetitionId)
 
       // Update debug info
       setDebug((prev) => ({

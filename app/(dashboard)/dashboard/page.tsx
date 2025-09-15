@@ -20,6 +20,8 @@ import EnhancedJudgeScoring from "@/components/judge-scoring"
 import { ResetScoresButton } from "@/components/admin/ResetScoresButton"
 import { useEventSync } from "@/hooks/useEventSync"
 import { ScoreSyncTest } from "@/components/debug/ScoreSyncTest"
+import AccessCodeMigrationTest from "@/components/debug/AccessCodeMigrationTest"
+import { saveCompetitionSelection, getBestCompetitionId, setActiveCompetition } from "@/lib/competition-selection"
 // import { SyncJudgesButton } from "@/components/admin/sync-judges-button"
 
 interface Competition {
@@ -96,8 +98,8 @@ const Dashboard = () => {
       if (selectedCompetition) {
         setIsLoadingCompetition(true)
         try {
-          // Save the selected competition ID to localStorage
-          localStorage.setItem(SELECTED_COMPETITION_KEY, selectedCompetition.toString())
+          // Save the selected competition ID with context
+          saveCompetitionSelection(selectedCompetition, 'dashboard')
 
           await loadCompetition(selectedCompetition)
           toast.success("Competition loaded successfully")
@@ -397,6 +399,7 @@ const Dashboard = () => {
             <div className="space-y-6">
               <DataManagement />
               <ScoreSyncTest />
+              <AccessCodeMigrationTest />
             </div>
           </TabsContent>
         </Tabs>

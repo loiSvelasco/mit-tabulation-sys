@@ -161,17 +161,23 @@ const EnhancedJudgeScoring = () => {
     handleAddJudge()
   }
 
-  const generateAccessCode = () => {
+  const generateAccessCode = (competitionId?: number | null) => {
     const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed similar looking characters
     let result = ""
     for (let i = 0; i < 6; i++) {
       result += characters.charAt(Math.floor(Math.random() * characters.length))
     }
+    
+    // Add competition ID prefix if available
+    if (competitionId) {
+      return `${competitionId}-${result}`
+    }
+    
     return result
   }
 
   const handleRegenerateAccessCode = (judgeId: string) => {
-    const newCode = generateAccessCode()
+    const newCode = generateAccessCode(selectedCompetitionId)
     console.log(`Regenerating access code for judge ${judgeId}: ${newCode}`)
     updateJudgeAccessCode(judgeId, newCode)
     setNeedsSync(true)
@@ -438,7 +444,9 @@ const EnhancedJudgeScoring = () => {
                       )}
                     </TableCell>
                     <TableCell className="flex items-center gap-2">
-                      <span className="font-mono">{showAccessCodes[judge.id] ? judge.accessCode : "••••••"}</span>
+                      <span className="font-mono text-sm">
+                        {showAccessCodes[judge.id] ? judge.accessCode : "••••••"}
+                      </span>
                       <Button size="icon" variant="ghost" onClick={() => toggleAccessCodeVisibility(judge.id)}>
                         {showAccessCodes[judge.id] ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                       </Button>

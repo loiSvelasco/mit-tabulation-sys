@@ -991,7 +991,16 @@ export default function JudgeTerminal() {
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
-                <h1 className="text-xl font-bold">{competitionName}</h1>
+                <div>
+                  <h1 className="text-xl font-bold">{competitionName}</h1>
+                  {competitionId && (
+                    <div className="text-xs text-primary-foreground/80 flex items-center gap-1">
+                      <span>ID: {competitionId}</span>
+                      <span>•</span>
+                      <span>Access Code Format: {competitionId}-XXX</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {judgeInfo && (
@@ -1050,7 +1059,16 @@ export default function JudgeTerminal() {
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
-                <h1 className="text-xl font-bold">{competitionName}</h1>
+                <div>
+                  <h1 className="text-xl font-bold">{competitionName}</h1>
+                  {competitionId && (
+                    <div className="text-xs text-primary-foreground/80 flex items-center gap-1">
+                      <span>ID: {competitionId}</span>
+                      <span>•</span>
+                      <span>Access Code Format: {competitionId}-XXX</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {judgeInfo && (
@@ -1202,7 +1220,16 @@ export default function JudgeTerminal() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div className="flex items-center gap-2">
               <Trophy className="h-5 w-5" />
-              <h1 className="text-xl font-bold">{competitionName}</h1>
+              <div>
+                <h1 className="text-xl font-bold">{competitionName}</h1>
+                {competitionId && (
+                  <div className="text-xs text-primary-foreground/80 flex items-center gap-1">
+                    <span>ID: {competitionId}</span>
+                    <span>•</span>
+                    <span>Access Code Format: {competitionId}-XXX</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {judgeInfo && (
