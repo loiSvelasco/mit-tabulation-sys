@@ -1,6 +1,8 @@
 import { StateCreator } from "zustand"
 import { CompetitionState, CompetitionSettings, Contestant, Judge } from "./types"
 import { dbToStoreScores, storeToDbScores } from "../score-adapter"
+import { globalEventEmitter, SCORE_UPDATED } from "../../lib/event-emitter"
+import { invalidateRankingCache } from "../../lib/ranking-service"
 
 export const createPersistenceSlice: StateCreator<
   CompetitionState,
@@ -12,6 +14,9 @@ export const createPersistenceSlice: StateCreator<
     saveCompetition: () => Promise<void>;
     loadCompetition: (competitionId: number) => Promise<void>;
     loadScores: (competitionId: number) => Promise<void>;
+    refreshScoresFromDatabase: () => Promise<void>;
+    setupEventListeners: () => void;
+    cleanupEventListeners: () => void;
     exportAllData: () => Promise<string>;
     importAllData: (jsonData: string) => void;
     exportCompetitionSettings: () => string;
@@ -98,6 +103,9 @@ export const createPersistenceSlice: StateCreator<
 
   loadCompetition: async (competitionId) => {
     try {
+      // Clean up existing event listeners before loading new competition
+      get().cleanupEventListeners()
+
       const response = await fetch(`/api/competitions/${competitionId}/data`)
 
       if (!response.ok) {
@@ -120,6 +128,9 @@ export const createPersistenceSlice: StateCreator<
 
       // Load scores from database
       await get().loadScores(competitionId)
+
+      // Set up event listeners for real-time synchronization
+      get().setupEventListeners()
     } catch (error) {
       console.error("Error loading competition:", error)
       throw error
@@ -143,6 +154,100 @@ export const createPersistenceSlice: StateCreator<
     } catch (error) {
       console.error("Error loading scores:", error)
       // Keep existing scores if loading fails
+    }
+  },
+
+  // Refresh scores from database without changing competition
+  refreshScoresFromDatabase: async () => {
+    const state = get()
+    const competitionId = state.selectedCompetitionId
+
+    if (!competitionId) {
+      console.warn("No competition selected, cannot refresh scores")
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/scores?competitionId=${competitionId}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh scores from database")
+      }
+
+      const scoresData = await response.json()
+
+      // Convert database format to store format
+      const storeScores = dbToStoreScores(scoresData)
+
+      set({ scores: storeScores })
+      console.log("Scores refreshed from database")
+    } catch (error) {
+      console.error("Error refreshing scores:", error)
+    }
+  },
+
+  // Set up event listeners for real-time synchronization
+  setupEventListeners: () => {
+    // Listen for score updates (including deletions)
+    const handleScoreUpdate = (scoreData: any) => {
+      const state = get()
+      
+      console.log("Event received:", scoreData)
+      console.log("Current competition ID:", state.selectedCompetitionId)
+      
+      // Only process events for the current competition
+      if (scoreData.competitionId && state.selectedCompetitionId && 
+          scoreData.competitionId !== state.selectedCompetitionId) {
+        console.log("Event ignored - different competition")
+        return
+      }
+
+      // If it's a deletion event, update the store immediately
+      if (scoreData.deleted) {
+        console.log("Score deletion event received:", scoreData)
+        
+        // Use the deleteScore function from scoresSlice
+        if (scoreData.segmentId && scoreData.contestantId && 
+            scoreData.judgeId && scoreData.criterionId) {
+          console.log("Deleting score from store...")
+          state.deleteScore(
+            scoreData.segmentId,
+            scoreData.contestantId,
+            scoreData.judgeId,
+            scoreData.criterionId
+          )
+          console.log("Score deleted from store successfully")
+        } else {
+          console.warn("Incomplete score deletion data:", scoreData)
+        }
+      } else {
+        // For score updates, refresh from database to ensure consistency
+        console.log("Score update event received, refreshing from database...")
+        state.refreshScoresFromDatabase()
+      }
+
+      // Invalidate ranking cache for this competition
+      if (state.selectedCompetitionId) {
+        console.log("Invalidating ranking cache for competition:", state.selectedCompetitionId)
+        invalidateRankingCache(state.selectedCompetitionId)
+      }
+    }
+
+    // Add the event listener
+    globalEventEmitter.on(SCORE_UPDATED, handleScoreUpdate)
+
+    // Store the handler reference for cleanup
+    set({ _scoreUpdateHandler: handleScoreUpdate })
+    
+    console.log("Event listeners set up successfully")
+  },
+
+  // Clean up event listeners
+  cleanupEventListeners: () => {
+    const state = get()
+    if (state._scoreUpdateHandler) {
+      globalEventEmitter.off(SCORE_UPDATED, state._scoreUpdateHandler)
+      set({ _scoreUpdateHandler: undefined })
     }
   },
 

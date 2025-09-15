@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { calculateSegmentScores } from "@/utils/rankingUtils"
 import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
-import { usePolling } from "@/hooks/usePolling"
+import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -139,8 +139,8 @@ export function Results() {
     console.log("Selected Competition ID from store:", selectedCompetitionId)
   }, [competitionSettings, selectedCompetitionId])
 
-  // Use polling for updates (5 second interval)
-  const { isPolling, lastUpdate, error, refresh, startPolling, stopPolling } = usePolling(selectedCompetitionId, 5000)
+  // Use optimized polling for updates (10 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 10000)
 
   // Find the next segment ID
   const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)

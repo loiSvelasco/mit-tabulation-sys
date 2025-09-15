@@ -171,34 +171,34 @@ export function calculateSegmentScores(
   const rawScores: Record<string, number> = {}
 
   segmentContestants.forEach((contestant) => {
-    // Get all scores for this contestant from all judges
-    const allScores: number[] = []
+    // Get total scores from each judge for this contestant
+    const judgeTotals: number[] = []
 
     judges.forEach((judge) => {
       if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-        const criterionScores = Object.values(scores[segmentId][contestant.id][judge.id])
-        // Round each individual score to 2 decimal places
-        const roundedScores = criterionScores.map((score) => roundToTwoDecimals(score as number))
-        allScores.push(...roundedScores)
+        // Calculate total score for this judge (sum of all criterion scores)
+        const totalScore = Object.values(scores[segmentId][contestant.id][judge.id])
+          .reduce((sum, score) => sum + score, 0)
+        judgeTotals.push(roundToTwoDecimals(totalScore))
       }
     })
 
-    if (allScores.length === 0) {
+    if (judgeTotals.length === 0) {
       rawScores[contestant.id] = 0
       return
     }
 
     switch (rankingConfig.method) {
       case "avg":
-        rawScores[contestant.id] = calculateAverageScore(allScores)
+        rawScores[contestant.id] = calculateAverageScore(judgeTotals)
         break
 
       case "median":
-        rawScores[contestant.id] = calculateMedianScore(allScores)
+        rawScores[contestant.id] = calculateMedianScore(judgeTotals)
         break
 
       case "trimmed":
-        rawScores[contestant.id] = calculateTrimmedMean(allScores, rankingConfig.trimPercentage || 20)
+        rawScores[contestant.id] = calculateTrimmedMean(judgeTotals, rankingConfig.trimPercentage || 20)
         break
 
       case "weighted":
@@ -227,17 +227,17 @@ export function calculateSegmentScores(
 
           return result
         }
-        rawScores[contestant.id] = calculateAverageScore(allScores)
+        rawScores[contestant.id] = calculateAverageScore(judgeTotals)
         break
 
       case "custom":
         if (rankingConfig.customFormula) {
           try {
-            const avg_score = calculateAverageScore(allScores)
-            const median_score = calculateMedianScore(allScores)
-            const min_score = roundToTwoDecimals(Math.min(...allScores))
-            const max_score = roundToTwoDecimals(Math.max(...allScores))
-            const judge_count = judges.length
+            const avg_score = calculateAverageScore(judgeTotals)
+            const median_score = calculateMedianScore(judgeTotals)
+            const min_score = roundToTwoDecimals(Math.min(...judgeTotals))
+            const max_score = roundToTwoDecimals(Math.max(...judgeTotals))
+            const judge_count = judgeTotals.length
 
             // eslint-disable-next-line no-new-func
             const formula = new Function(
@@ -253,15 +253,15 @@ export function calculateSegmentScores(
             rawScores[contestant.id] = roundToTwoDecimals(result)
           } catch (error) {
             console.error("Error evaluating custom formula:", error)
-            rawScores[contestant.id] = calculateAverageScore(allScores)
+            rawScores[contestant.id] = calculateAverageScore(judgeTotals)
           }
         } else {
-          rawScores[contestant.id] = calculateAverageScore(allScores)
+          rawScores[contestant.id] = calculateAverageScore(judgeTotals)
         }
         break
 
       default:
-        rawScores[contestant.id] = calculateAverageScore(allScores)
+        rawScores[contestant.id] = calculateAverageScore(judgeTotals)
     }
   })
 

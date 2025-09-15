@@ -170,7 +170,7 @@ export async function DELETE(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }
 
-    // console.log("Emitting score delete event:", scoreData)
+    console.log("Emitting score delete event:", scoreData)
     globalEventEmitter.emit(SCORE_UPDATED, scoreData)
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Monitor, Trophy } from "lucide-react"
@@ -10,6 +10,20 @@ import Results from "@/components/results"
 export default function ManageCompetition() {
   const [activeTab, setActiveTab] = useState("monitor")
 
+  // Restore active tab on mount
+  useEffect(() => {
+    const savedTab = localStorage.getItem("manage-competition-active-tab")
+    if (savedTab && (savedTab === "monitor" || savedTab === "results")) {
+      setActiveTab(savedTab)
+    }
+  }, [])
+
+  // Save active tab when it changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    localStorage.setItem("manage-competition-active-tab", value)
+  }
+
   return (
     <div className="space-y-6 container mx-auto">
       <Card className="border-0 shadow-none">
@@ -18,7 +32,7 @@ export default function ManageCompetition() {
           <CardDescription>Monitor live scoring progress and manage competition results</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="monitor" className="flex items-center gap-2">
                 <Monitor className="h-4 w-4" />

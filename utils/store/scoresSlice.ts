@@ -8,6 +8,7 @@ export const createScoresSlice: StateCreator<
   {
     scores: Record<string, Record<string, Record<string, Record<string, number>>>>;
     setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => void;
+    deleteScore: (segmentId: string, contestantId: string, judgeId: string, criterionId: string) => void;
     getTotalScore: (segmentId: string, contestantId: string, judgeId: string) => number;
     getContestantTotalScores: (segmentId: string, contestantId: string) => number;
     resetScores: () => Promise<void>;
@@ -16,6 +17,17 @@ export const createScoresSlice: StateCreator<
   scores: {},
 
   setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => {
+    // Validate input parameters
+    if (!segmentId || !contestantId || !judgeId || !criterionId) {
+      console.error("Invalid score parameters:", { segmentId, contestantId, judgeId, criterionId, score })
+      return
+    }
+
+    if (typeof score !== 'number' || isNaN(score) || score < 0) {
+      console.error("Invalid score value:", score)
+      return
+    }
+
     // Round the score to exactly 2 decimal places
     const roundedScore = Number(score.toFixed(2))
 
@@ -39,6 +51,12 @@ export const createScoresSlice: StateCreator<
         // Initialize judge scores object if it doesn't exist
         if (!newScores[segmentId][contestantId][judgeId]) {
           newScores[segmentId][contestantId][judgeId] = {}
+        }
+
+        // Check if score already exists and log for debugging
+        const existingScore = newScores[segmentId][contestantId][judgeId][criterionId]
+        if (existingScore !== undefined) {
+          console.log(`Replacing existing score: ${existingScore} -> ${roundedScore} for ${judgeId}/${contestantId}/${criterionId}`)
         }
 
         // Set the score for the specific criterion with exactly 2 decimal places
@@ -68,6 +86,12 @@ export const createScoresSlice: StateCreator<
       // Initialize judge scores object if it doesn't exist
       if (!newScores[segmentId][contestantId][judgeId]) {
         newScores[segmentId][contestantId][judgeId] = {}
+      }
+
+      // Check if score already exists and log for debugging
+      const existingScore = newScores[segmentId][contestantId][judgeId][criterionId]
+      if (existingScore !== undefined) {
+        console.log(`Replacing existing score: ${existingScore} -> ${roundedScore} for ${judgeId}/${contestantId}/${criterionId}`)
       }
 
       // Set the score for the specific criterion with exactly 2 decimal places
@@ -120,6 +144,35 @@ export const createScoresSlice: StateCreator<
           })
       }
     }
+  },
+
+  // Delete a specific score from the store
+  deleteScore: (segmentId: string, contestantId: string, judgeId: string, criterionId: string) => {
+    set((state) => {
+      // Create a deep copy of the current scores to avoid mutation issues
+      const newScores = { ...state.scores }
+
+      // Check if the score exists before trying to delete it
+      if (newScores[segmentId]?.[contestantId]?.[judgeId]?.[criterionId] !== undefined) {
+        // Delete the specific score
+        delete newScores[segmentId][contestantId][judgeId][criterionId]
+
+        // Clean up empty objects to prevent memory leaks
+        if (Object.keys(newScores[segmentId][contestantId][judgeId]).length === 0) {
+          delete newScores[segmentId][contestantId][judgeId]
+        }
+        if (Object.keys(newScores[segmentId][contestantId]).length === 0) {
+          delete newScores[segmentId][contestantId]
+        }
+        if (Object.keys(newScores[segmentId]).length === 0) {
+          delete newScores[segmentId]
+        }
+
+        console.log(`Score deleted from store: ${segmentId}/${contestantId}/${judgeId}/${criterionId}`)
+      }
+
+      return { scores: newScores }
+    })
   },
 
   // Helper function to get the total score for a contestant from a judge in a segment

@@ -18,6 +18,8 @@ import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import EnhancedJudgeScoring from "@/components/judge-scoring"
 import { ResetScoresButton } from "@/components/admin/ResetScoresButton"
+import { useEventSync } from "@/hooks/useEventSync"
+import { ScoreSyncTest } from "@/components/debug/ScoreSyncTest"
 // import { SyncJudgesButton } from "@/components/admin/sync-judges-button"
 
 interface Competition {
@@ -45,6 +47,9 @@ const Dashboard = () => {
   const [isCreatingNew, setIsCreatingNew] = useState(false)
 
   const { saveCompetition, loadCompetition, isSaving, lastSaved, setSelectedCompetitionId } = useCompetitionStore()
+  
+  // Set up real-time event synchronization
+  useEventSync()
 
   // Fetch user's competitions
   useEffect(() => {
@@ -389,7 +394,10 @@ const Dashboard = () => {
           </TabsContent> */}
 
           <TabsContent value="data">
-            <DataManagement />
+            <div className="space-y-6">
+              <DataManagement />
+              <ScoreSyncTest />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

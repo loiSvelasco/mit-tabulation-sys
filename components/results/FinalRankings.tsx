@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight, HelpCircle, Info, BarChart2, LineChart, PieChart } from "lucide-react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { calculateSegmentScores, convertScoresToRanks, roundToTwoDecimals } from "@/utils/rankingUtils"
+import { useDatabaseRankings } from "@/hooks/useDatabaseRankings"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -113,104 +114,6 @@ interface RankingCalculations {
   avgCriteriaScores: AvgCriteriaScores
 }
 
-// Custom hook for ranking calculations
-function useRankingCalculations(
-  segmentId: string | undefined,
-  contestantsGroup: Contestant[] | undefined,
-  judges: Judge[] | undefined,
-  scores: Scores | undefined,
-  competitionSettings: CompetitionSettings | undefined,
-): RankingCalculations {
-  return useMemo(() => {
-    const emptyResult: RankingCalculations = {
-      rankings: {},
-      judgeRankings: {},
-      judgeScores: {},
-      totalScores: {},
-      avgScores: {},
-      avgCriteriaScores: {},
-    }
-
-    if (!segmentId || !contestantsGroup || !judges || !scores || !competitionSettings) {
-      return emptyResult
-    }
-
-    // Get the selected segment and criteria
-    const segment = competitionSettings.segments.find((s) => s.id === segmentId)
-    const criteria = segment?.criteria || []
-
-    // Calculate rankings using the ranking-utils
-    const rankings = calculateSegmentScores(contestantsGroup, judges, scores, segmentId, competitionSettings.ranking)
-
-    // For each judge, calculate their individual rankings
-    const judgeRankings: AllJudgeRankings = {}
-    const judgeScores: AllJudgeScores = {}
-
-    judges.forEach((judge) => {
-      const judgeScoreMap: JudgeScores = {}
-
-      contestantsGroup.forEach((contestant) => {
-        // Get total score from this judge for this contestant
-        const totalScore = getJudgeTotalScore(scores, segmentId, contestant.id, judge.id)
-        judgeScoreMap[contestant.id] = totalScore
-      })
-
-      judgeScores[judge.id] = judgeScoreMap
-      judgeRankings[judge.id] = convertScoresToRanks(judgeScoreMap)
-    })
-
-    // Calculate total and average scores for each contestant
-    const totalScores: TotalScores = {}
-    const avgScores: TotalScores = {}
-
-    contestantsGroup.forEach((contestant) => {
-      let totalScore = 0
-      let count = 0
-
-      judges.forEach((judge) => {
-        const judgeTotal = getJudgeTotalScore(scores, segmentId, contestant.id, judge.id)
-        if (judgeTotal > 0) {
-          totalScore += judgeTotal
-          count++
-        }
-      })
-
-      totalScores[contestant.id] = roundToTwoDecimals(totalScore)
-      avgScores[contestant.id] = count > 0 ? roundToTwoDecimals(totalScore / count) : 0
-    })
-
-    // Calculate average scores per criteria for each contestant
-    const avgCriteriaScores: AvgCriteriaScores = {}
-    contestantsGroup.forEach((contestant) => {
-      const criteriaScores: { [criterionId: string]: number } = {}
-
-      criteria.forEach((criterion) => {
-        let totalCriterionScore = 0
-        let criterionCount = 0
-
-        judges.forEach((judge) => {
-          if (scores[segmentId]?.[contestant.id]?.[judge.id]?.[criterion.id]) {
-            totalCriterionScore += scores[segmentId][contestant.id][judge.id][criterion.id]
-            criterionCount++
-          }
-        })
-
-        criteriaScores[criterion.id] = criterionCount > 0 ? roundToTwoDecimals(totalCriterionScore / criterionCount) : 0
-      })
-
-      avgCriteriaScores[contestant.id] = criteriaScores
-    })
-
-    return {
-      rankings,
-      judgeRankings,
-      judgeScores,
-      totalScores,
-      avgScores,
-      avgCriteriaScores,
-    }
-  }, [segmentId, contestantsGroup, judges, scores, competitionSettings])
-}
 
 // Helper functions for common calculations
 function getJudgeTotalScore(scores: Scores, segmentId: string, contestantId: string, judgeId: string): number {
@@ -354,6 +257,18 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
     [contestants, segmentId],
   )
 
+  // Get database-driven rankings for the main display
+  const { 
+    lastUpdated,
+    refreshRankings
+  } = useDatabaseRankings(
+    segmentId,
+    segmentContestants,
+    judges,
+    competitionSettings,
+    false
+  )
+
   // Group contestants by gender if needed - using case-insensitive comparison
   const maleContestants = useMemo(
     () => segmentContestants.filter((c) => c.gender?.toLowerCase() === "male"),
@@ -405,6 +320,11 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2">
         <h2 className="flex text-lg font-semibold mb-2">Final Rankings</h2>
+        {lastUpdated && (
+          <span className="text-xs text-muted-foreground">
+            (Updated: {lastUpdated.toLocaleTimeString()})
+          </span>
+        )}
           <Popover>
           <PopoverTrigger>
             <HelpCircle size={16} className="text-muted-foreground" />
@@ -441,7 +361,19 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
           </PopoverContent>
         </Popover>
         </div>
-        <PrintResults className="float-right" key={segment?.id} segmentId={segment?.id} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshRankings}
+            className="px-3 py-1 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20 flex items-center gap-1"
+            title="Refresh rankings from database"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <PrintResults key={segment?.id} segmentId={segmentId} />
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">
@@ -498,7 +430,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         renderRankingsTable(segmentContestants)
       )}
 
-      {segment && segment.advancingCandidates > 0 && (
+      {segment && segment.advancingCandidates && segment.advancingCandidates > 0 && (
         <p className="text-sm mt-4">
           <span className="font-medium">Note:</span> Top {segment.advancingCandidates} contestants will advance to the
           next segment.
@@ -534,12 +466,23 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
     return segment?.criteria || []
   }, [competitionSettings.segments, segmentId])
 
-  const { rankings, judgeRankings, judgeScores, totalScores, avgScores, avgCriteriaScores } = useRankingCalculations(
+  const { 
+    rankings, 
+    judgeRankings, 
+    judgeScores, 
+    totalScores, 
+    avgScores, 
+    avgCriteriaScores,
+    isLoading: rankingsLoading,
+    lastUpdated,
+    error: rankingsError,
+    refreshRankings
+  } = useDatabaseRankings(
     segmentId,
     contestantsGroup,
     judges,
-    scores,
     competitionSettings,
+    false // Don't force refresh by default
   )
 
   const sortedContestants = useMemo(() => {
@@ -718,6 +661,49 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
           {!contestantsGroup || contestantsGroup.length === 0
             ? "No contestants in this category"
             : "No judges available to calculate rankings"}
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state
+  if (rankingsLoading) {
+    return (
+      <div className="mb-6">
+        {groupTitle && (
+          <div className="bg-primary/10 px-4 py-2 rounded-t-md">
+            <h3 className="text-lg font-semibold">{groupTitle}</h3>
+          </div>
+        )}
+        <div className="p-4 text-center text-muted-foreground">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            Loading rankings...
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (rankingsError) {
+    return (
+      <div className="mb-6">
+        {groupTitle && (
+          <div className="bg-primary/10 px-4 py-2 rounded-t-md">
+            <h3 className="text-lg font-semibold">{groupTitle}</h3>
+          </div>
+        )}
+        <div className="p-4 text-center text-destructive">
+          <div className="flex flex-col items-center gap-2">
+            <p>Error loading rankings: {rankingsError}</p>
+            <button 
+              onClick={refreshRankings}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -1081,7 +1067,7 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                       <TableCell className="text-center align-middle">
                         {isAdvancing &&
                         segmentId &&
-                        competitionSettings.segments.find((s) => s.id === segmentId)?.advancingCandidates > 0 ? (
+                        (competitionSettings.segments.find((s) => s.id === segmentId)?.advancingCandidates ?? 0) > 0 ? (
                           <Badge className="bg-green-500">Advancing</Badge>
                         ) : (
                           <Badge variant="outline">Not Advancing</Badge>

@@ -106,6 +106,7 @@ export interface JudgesSlice {
 export interface ScoresSlice {
   scores: Record<string, Record<string, Record<string, Record<string, number>>>>
   setScores: (segmentId: string, contestantId: string, judgeId: string, criterionId: string, score: number) => void
+  deleteScore: (segmentId: string, contestantId: string, judgeId: string, criterionId: string) => void
   getTotalScore: (segmentId: string, contestantId: string, judgeId: string) => number
   getContestantTotalScores: (segmentId: string, contestantId: string) => number
   resetScores: () => Promise<void>
@@ -113,10 +114,14 @@ export interface ScoresSlice {
 
 export interface PersistenceSlice {
   selectedCompetitionId: number | null
+  _scoreUpdateHandler?: (scoreData: any) => void
   setSelectedCompetitionId: (id: number | null) => void
   saveCompetition: () => Promise<void>
   loadCompetition: (competitionId: number) => Promise<void>
   loadScores: (competitionId: number) => Promise<void>
+  refreshScoresFromDatabase: () => Promise<void>
+  setupEventListeners: () => void
+  cleanupEventListeners: () => void
   exportAllData: () => Promise<string>
   importAllData: (jsonData: string) => void
   exportCompetitionSettings: () => string

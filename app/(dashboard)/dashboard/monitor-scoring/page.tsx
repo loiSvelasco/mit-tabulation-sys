@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import useCompetitionStore from "@/utils/useCompetitionStore"
-import { usePolling } from "@/hooks/usePolling"
+import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -49,8 +49,8 @@ export default function MonitorScoring() {
   // Add a ref to track previous active criteria for comparison
   const previousActiveCriteriaRef = useRef<string>("")
 
-  // Use polling for real-time updates (5 second interval to reduce flashing)
-  const { isPolling, lastUpdate, error, refresh, startPolling, stopPolling } = usePolling(competitionId, 5000)
+  // Use optimized polling for real-time updates (10 second interval with change detection)
+  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 10000)
 
   // Initialize the component - load the active competition
   const initialize = useCallback(async () => {
