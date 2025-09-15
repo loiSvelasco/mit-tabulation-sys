@@ -244,8 +244,8 @@ const CompetitionSettings = () => {
       {/* Competition Details */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Competition Name</CardTitle>
-          <CardDescription>Set up the basic information about your competition</CardDescription>
+          <CardTitle className="text-1xl">Competition Details</CardTitle>
+          {/* <CardDescription>Set up the basic information about your competition</CardDescription> */}
         </CardHeader>
         <CardContent>
           <Input
@@ -263,12 +263,12 @@ const CompetitionSettings = () => {
             <label>Separate rankings by gender</label>
           </div>
         </CardContent>
-      </Card>
+      {/* </Card> */}
 
       {/* Segments & Criteria */}
-      <Card>
+      {/* <Card> */}
         <CardHeader>
-          <CardTitle className="text-2xl">Competition Segments</CardTitle>
+          <CardTitle className="text-1xl">Competition Segments</CardTitle>
           <CardDescription>Set up the segments that will make up your competition</CardDescription>
         </CardHeader>
         <CardContent>
@@ -319,7 +319,7 @@ const CompetitionSettings = () => {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold">{segment.name}</h3>
+                        <h3 className="font-semibold">{segment.name}</h3>
                         <Button
                           size="icon"
                           variant="outline"
