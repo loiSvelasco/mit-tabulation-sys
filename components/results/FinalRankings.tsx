@@ -425,9 +425,24 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         <div className="space-y-6">
           {maleContestants.length > 0 && renderRankingsTable(maleContestants, "Male Division")}
           {femaleContestants.length > 0 && renderRankingsTable(femaleContestants, "Female Division")}
+          {maleContestants.length === 0 && femaleContestants.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground">
+              <div className="text-4xl mb-2">📊</div>
+              <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+              <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+            </div>
+          )}
         </div>
       ) : (
-        renderRankingsTable(segmentContestants)
+        segmentContestants.length > 0 ? (
+          renderRankingsTable(segmentContestants)
+        ) : (
+          <div className="p-8 text-center text-muted-foreground">
+            <div className="text-4xl mb-2">📊</div>
+            <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+            <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+          </div>
+        )
       )}
 
       {segment && segment.advancingCandidates && segment.advancingCandidates > 0 && (
@@ -1142,7 +1157,7 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                           <TableCell key={judge.id} className="text-center">
                                             {criterionScore > 0
                                               ? roundToTwoDecimals(criterionScore).toFixed(2)
-                                              : "0.00"}
+                                              : "-"}
                                             <span className="text-xs text-muted-foreground ml-1">
                                               ({percentage.toFixed(0)}%)
                                             </span>
@@ -1165,13 +1180,13 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                     const total = getJudgeTotalScore(scores, segmentId, contestant.id, judge.id)
                                     return (
                                       <TableCell key={judge.id} className="text-center font-medium">
-                                        {total > 0 ? total.toFixed(2) : "0.00"}
+                                        {total > 0 ? total.toFixed(2) : "-"}
                                       </TableCell>
                                     )
                                   })}
 
                                   <TableCell className="text-center font-medium">
-                                    {totalScores[contestant.id]?.toFixed(2) || "0.00"}
+                                    {totalScores[contestant.id] ? totalScores[contestant.id].toFixed(2) : "-"}
                                   </TableCell>
 
                                   <TableCell className="text-center font-medium">
@@ -1203,7 +1218,7 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                           })
                                           .join(", ")}
                                       </p>
-                                      <p>Sum of scores: {totalScores[contestant.id]?.toFixed(2) || "0.00"}</p>
+                                      <p>Sum of scores: {totalScores[contestant.id] ? totalScores[contestant.id].toFixed(2) : "-"}</p>
                                       <p>
                                         Number of judges with scores:{" "}
                                         {
@@ -1228,7 +1243,7 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                               )}
                               {competitionSettings.ranking.method === "avg-rank" && (
                                 <p className="text-sm">
-                                  Total scores ({totalScores[contestant.id]?.toFixed(2) || "0.00"}) then ranked against
+                                  Total scores ({totalScores[contestant.id] ? totalScores[contestant.id].toFixed(2) : "-"}) then ranked against
                                   other contestants.
                                 </p>
                               )}
@@ -1299,10 +1314,10 @@ const RankingsTable: React.FC<RankingsTableProps> = ({
                                         <tr className="border-t border-gray-200 font-medium bg-muted/20">
                                           <td className="px-3 py-2">Total</td>
                                           <td className="px-3 py-2 text-center">
-                                            {criteria.reduce(
+                                            {criteria.length > 0 ? criteria.reduce(
                                               (sum, c) => sum + (typeof c.weight === "number" ? c.weight : 1),
                                               0,
-                                            )}
+                                            ) : "-"}
                                           </td>
                                           <td className="px-3 py-2 text-center">-</td>
                                           <td className="px-3 py-2 text-center">

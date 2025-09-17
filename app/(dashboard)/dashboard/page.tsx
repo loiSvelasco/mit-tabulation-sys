@@ -7,16 +7,19 @@ import FullPageLoader from "@/components/auth/loader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { LaptopMinimalIcon as LaptopMinimalCheck, Save, Clock, PlusCircle, X, Tv2, Trophy } from "lucide-react"
+import { Save, Clock, TestTube, Trophy } from "lucide-react"
 import CompetitionSettings from "@/components/competition-settings"
 import DataManagement from "@/components/data-management"
 import Results from "@/components/results"
 import { RankingConfiguration } from "@/components/ranking-configuration"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { toast } from "sonner"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import EnhancedJudgeScoring from "@/components/judge-scoring"
 import { ResetScoresButton } from "@/components/admin/ResetScoresButton"
+import { HamburgerMenu } from "@/components/ui/hamburger-menu"
 import { useEventSync } from "@/hooks/useEventSync"
 import { ScoreSyncTest } from "@/components/debug/ScoreSyncTest"
 import AccessCodeMigrationTest from "@/components/debug/AccessCodeMigrationTest"
@@ -46,8 +49,10 @@ const Dashboard = () => {
   const [selectedCompetition, setSelectedCompetition] = useState<number | null>(null)
   const [isLoadingCompetition, setIsLoadingCompetition] = useState(false)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [isPopulatingScores, setIsPopulatingScores] = useState(false)
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string>("")
 
-  const { saveCompetition, loadCompetition, isSaving, lastSaved, setSelectedCompetitionId } = useCompetitionStore()
+  const { saveCompetition, loadCompetition, isSaving, lastSaved, setSelectedCompetitionId, competitionSettings } = useCompetitionStore()
   
   // Set up real-time event synchronization
   useEventSync()
@@ -201,6 +206,48 @@ const Dashboard = () => {
     toast.info("Creation canceled")
   }
 
+  const handlePopulateTestScores = async () => {
+    if (!selectedSegmentId) {
+      toast.error('Please select a segment first')
+      return
+    }
+
+    if (!selectedCompetition) {
+      toast.error('No competition selected')
+      return
+    }
+
+    setIsPopulatingScores(true)
+    try {
+      const response = await fetch('/api/scores/populate-test-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          segmentId: selectedSegmentId,
+          competitionId: selectedCompetition
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(`Successfully populated ${result.scoresGenerated} test scores!`)
+        if (result.errors && result.errors.length > 0) {
+          console.warn('Some errors occurred:', result.errors)
+        }
+      } else {
+        toast.error(result.message || 'Failed to populate test scores')
+      }
+    } catch (error) {
+      console.error('Error populating test scores:', error)
+      toast.error('Failed to populate test scores')
+    } finally {
+      setIsPopulatingScores(false)
+    }
+  }
+
   // Add a function to set a competition as active
   const setCompetitionActive = async (competitionId: number) => {
     try {
@@ -293,36 +340,12 @@ const Dashboard = () => {
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline">
-              <Link href="/dashboard/competitions">
-                <Trophy className="mr-2 h-4 w-4" /> Manage Competitions
-              </Link>
-            </Button>
-
-            <Button asChild variant="outline">
-              <Link href="/dashboard/manage-competition" target="_blank">
-                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Monitor Scoring
-              </Link>
-            </Button>
-
-            <Button
-              variant={isCreatingNew ? "destructive" : "outline"}
-              onClick={isCreatingNew ? handleCancelCreate : handleCreateNew}
-              disabled={isLoadingCompetition}
-              className="flex items-center gap-2"
-            >
-              {isCreatingNew ? (
-                <>
-                  <X size={16} />
-                  Cancel
-                </>
-              ) : (
-                <>
-                  <PlusCircle size={16} />
-                  Create New
-                </>
-              )}
-            </Button>
+            <HamburgerMenu
+              isCreatingNew={isCreatingNew}
+              onCreateNew={handleCreateNew}
+              onCancelCreate={handleCancelCreate}
+              isLoadingCompetition={isLoadingCompetition}
+            />
 
             <ResetScoresButton />
             
@@ -411,8 +434,60 @@ const Dashboard = () => {
           <TabsContent value="data">
             <div className="space-y-6">
               <DataManagement />
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-4">
                 <ResetScoresButton />
+                <AlertDialog onOpenChange={(open) => {
+                  if (!open) {
+                    setSelectedSegmentId("")
+                  }
+                }}>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                      disabled={isPopulatingScores || !selectedCompetition || !competitionSettings?.segments?.length}
+                    >
+                      <TestTube className="h-4 w-4 mr-2" />
+                      {isPopulatingScores ? "Populating..." : "Populate Test Scores"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Populate Test Scores</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will generate random test scores for all judges, contestants, and criteria in the selected segment. 
+                        <strong> Existing scores will be overwritten.</strong>
+                        <br /><br />
+                        Scores will be generated in increments of 0.25 (70-95% of maximum score).
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-4">
+                      <label className="text-sm font-medium mb-2 block">Select Segment:</label>
+                      <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a segment..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {competitionSettings?.segments?.map((segment: any) => (
+                            <SelectItem key={segment.id} value={segment.id}>
+                              {segment.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handlePopulateTestScores}
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={!selectedSegmentId}
+                      >
+                        Populate Scores
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               <ScoreSyncTest />
               <AccessCodeMigrationTest />

@@ -173,9 +173,13 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
           }
         })
 
+        // Determine if we need compact styling for many judges
+        const hasManyJudges = judges.length >= 6
+        const tableClass = hasManyJudges ? 'many-judges' : ''
+        
         // Generate table HTML
         let tableHTML = `
-          <table>
+          <table class="${tableClass}">
             <colgroup>
               <col class="col-rank" style="width: 5%;">
               <col class="col-contestant" style="width: 15%;">
@@ -202,16 +206,16 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
         `
 
         // Add headers for judge scores
-        judges.forEach((judge) => {
+        judges.forEach((judge, index) => {
           tableHTML += `
-            <th>${judge.name}<br><span class="small-text">(Score)</span></th>
+            <th>J${index + 1}<br><span class="small-text">(Score)</span></th>
           `
         })
 
         // Add headers for judge ranks
-        judges.forEach((judge) => {
+        judges.forEach((judge, index) => {
           tableHTML += `
-            <th>${judge.name}<br><span class="small-text">(Rank)</span></th>
+            <th>J${index + 1}<br><span class="small-text">(Rank)</span></th>
           `
         })
 
@@ -278,11 +282,11 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
             <div class="signature-grid">
         `
 
-        judges.forEach((judge) => {
+        judges.forEach((judge, index) => {
           signatureHTML += `
             <div class="signature-box">
               <div class="signature-line"></div>
-              <p class="signature-name">${judge.name}</p>
+              <p class="signature-name">${judge.name} - J${index + 1}</p>
             </div>
           `
         })
@@ -311,68 +315,103 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
               padding: 0;
             }
             
-            /* Page setup */
+            /* Page setup - Enhanced A4 Landscape */
             @page {
-              size: landscape;
-              margin: 8mm;
+              size: A4 landscape;
+              margin: 10mm 8mm;
             }
             
-            /* Header styles */
+            /* Enhanced header styles */
             .header {
               text-align: center;
-              margin-bottom: 3mm;
-              padding-bottom: 2mm;
-              border-bottom: 0.3mm solid #eee;
+              margin-bottom: 4mm;
+              padding: 2mm 0;
+              border-bottom: 0.3mm solid #333;
+              background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             }
             
             .header h1 {
-              font-size: 14pt;
+              font-size: 12pt;
+              font-weight: bold;
               margin: 0 0 1mm 0;
+              color: #2c3e50;
+              text-transform: uppercase;
+              letter-spacing: 0.5pt;
             }
             
             .header h2 {
-              font-size: 12pt;
+              font-size: 10pt;
               margin: 0 0 1mm 0;
+              color: #34495e;
+              font-weight: 600;
             }
             
             .header h3 {
-              font-size: 10pt;
+              font-size: 11pt;
               margin: 0 0 1mm 0;
+              color: #e74c3c;
+              font-weight: 600;
             }
             
             .header p {
-              font-size: 8pt;
-              margin: 0;
-              color: #666;
-            }
-            
-            /* Division header */
-            .division-header {
-              background-color: #f0f0f0;
-              font-weight: bold;
-              padding: 1mm 2mm;
-              margin-bottom: 1mm;
               font-size: 9pt;
+              margin: 0;
+              color: #7f8c8d;
             }
             
-            /* Table styles */
+            /* Enhanced division header */
+            .division-header {
+              background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+              color: white;
+              padding: 2mm 3mm;
+              font-weight: bold;
+              font-size: 9pt;
+              border-top-left-radius: 2mm;
+              border-top-right-radius: 2mm;
+              margin-top: 4mm;
+              text-align: center;
+              text-transform: uppercase;
+              letter-spacing: 0.3pt;
+            }
+            
+            /* Enhanced table styles */
             table {
               width: 100%;
               border-collapse: collapse;
-              font-size: 8pt;
-              margin-bottom: 3mm;
+              font-size: 9pt;
+              margin-bottom: 4mm;
+              table-layout: fixed;
+              border: 0.2mm solid #2c3e50;
+            }
+            
+            /* For tables with many judges, make text smaller */
+            .many-judges table {
+              font-size: 7pt;
+            }
+            
+            .many-judges th, .many-judges td {
+              padding: 0.8mm 0.5mm;
+              font-size: 7pt;
             }
             
             th, td {
-              border: 0.3mm solid #000;
-              padding: 1mm;
-              text-align: left;
+              border: 0.1mm solid #2c3e50;
+              padding: 1.5mm 1mm;
+              text-align: center;
+              vertical-align: middle;
             }
             
             th {
-              background-color: #f0f0f0;
+              background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+              color: white;
               font-weight: bold;
-              text-align: center;
+              font-size: 8pt;
+              text-transform: uppercase;
+              letter-spacing: 0.2pt;
+            }
+            
+            tbody tr:nth-child(even) {
+              background-color: #f8f9fa;
             }
             
             .center {
@@ -537,6 +576,9 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
       }
     })
 
+    // Determine if we need compact styling for many judges
+    const hasManyJudges = judges.length >= 6
+    
     return (
       <div className="mb-6">
         {groupTitle && (
@@ -545,21 +587,21 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
           </div>
         )}
 
-        <table className="w-full border-collapse print-table">
+        <table className={`w-full border-collapse print-table ${hasManyJudges ? 'many-judges' : ''}`}>
           <thead>
             <tr className="print-header-row">
               <th className="print-cell text-center">Final Rank</th>
               <th className="print-cell text-center">Contestant</th>
-              {judges.map((judge) => (
+              {judges.map((judge, index) => (
                 <th key={`score-${judge.id}`} className="print-cell text-center">
-                  {judge.name}
+                  J{index + 1}
                   <br />
                   <span className="text-xs">(Score)</span>
                 </th>
               ))}
-              {judges.map((judge) => (
+              {judges.map((judge, index) => (
                 <th key={`rank-${judge.id}`} className="print-cell text-center">
-                  {judge.name}
+                  J{index + 1}
                   <br />
                   <span className="text-xs">(Rank)</span>
                 </th>
@@ -639,7 +681,7 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
 
       <Button
         onClick={handlePrint}
-        className="flex items-center gap-2 print:hidden"
+        className="flex items-center gap-2"
         variant="outline"
         disabled={!selectedCriterionId}
       >
@@ -649,7 +691,7 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
 
       <Button
         onClick={handleGeneratePDF}
-        className="flex items-center gap-2 print:hidden"
+        className="flex items-center gap-2"
         variant="default"
         disabled={!selectedCriterionId || isGeneratingPDF}
       >
@@ -666,16 +708,15 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
       {/* Print-only content - hidden on screen but visible when printing */}
       {selectedCriterion && (
         <div ref={printRef} className="hidden print:block">
-          <div className="print-container">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold">{competitionSettings.name}</h1>
-              <h2 className="text-xl">{segmentName} - Criterion Rankings</h2>
-              <h3 className="text-lg font-semibold mt-1">
-                {selectedCriterion.name} ({selectedCriterion.maxScore} points)
-              </h3>
-              <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM d, yyyy")}</p>
-              {/* <p className="text-sm mt-2 font-medium">Ranking Method: Average Rank (lower is better)</p> */}
-            </div>
+        <div className="print-container">
+          <div className="text-center mb-6 print-header">
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-gray-800">{competitionSettings.name}</h1>
+            <h2 className="text-xl font-semibold text-gray-700">{segmentName} - Criterion Rankings</h2>
+            <h3 className="text-lg font-semibold mt-1 text-red-600">
+              {selectedCriterion.name} ({selectedCriterion.maxScore} points)
+            </h3>
+            <p className="text-sm text-gray-600">{format(new Date(), "MMMM d, yyyy")}</p>
+          </div>
 
             {/* Results Tables */}
             {separateByGender ? (
@@ -688,13 +729,13 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
             )}
 
             {/* Signature Section */}
-            <div className="mt-8 page-break-before">
+            <div className="mt-8 signature-section">
               <h3 className="text-center font-bold mb-6">Judges' Signatures</h3>
               <div className="grid grid-cols-3 gap-6">
-                {judges.map((judge) => (
+                {judges.map((judge, index) => (
                   <div key={judge.id} className="text-center">
                     <div className="border-b border-black pt-12"></div>
-                    <p className="mt-1">{judge.name}</p>
+                    <p className="mt-1">{judge.name} - J{index + 1}</p>
                   </div>
                 ))}
               </div>
@@ -722,8 +763,8 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
       <style jsx global>{`
         @media print {
           @page {
-            size: landscape;
-            margin: 0.75cm;
+            size: A4 landscape;
+            margin: 10mm 8mm;
           }
           
           body * {
@@ -748,28 +789,61 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
             border-collapse: collapse;
             margin-bottom: 15px;
             page-break-inside: avoid;
+            font-size: 9pt;
+            table-layout: fixed;
+          }
+          
+          /* Compact styling for many judges */
+          .print-table.many-judges {
+            font-size: 7pt;
+          }
+          
+          .print-table.many-judges .print-cell {
+            padding: 0.8mm 0.5mm;
+            font-size: 7pt;
           }
           
           .print-cell {
-            border: 1px solid #000;
-            padding: 6px;
+            border: 0.1mm solid #2c3e50;
+            padding: 1.5mm 1mm;
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 9pt;
+            vertical-align: middle;
           }
           
           .print-header-row {
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.2pt;
+          }
+          
+          .print-row:nth-child(even) {
+            background-color: #f8f9fa;
           }
           
           .print-row {
             page-break-inside: avoid;
           }
           
+          .print-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-bottom: 2px solid #2c3e50;
+            margin-bottom: 20px;
+          }
+          
           .print-division {
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
             font-weight: bold;
-            padding: 6px;
+            padding: 8px 12px;
             margin-top: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.3pt;
+            border-radius: 4px 4px 0 0;
           }
           
           /* Ensure signature lines print well */
@@ -779,6 +853,12 @@ export function PrintCriteriaRanking({ segmentId }: { segmentId: string }) {
           }
           
           /* Control page breaks */
+          .signature-section {
+            page-break-before: auto;
+            margin-top: 20px;
+            padding-top: 15px;
+          }
+          
           .page-break-before {
             page-break-before: auto;
           }

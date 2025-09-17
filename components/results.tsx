@@ -654,10 +654,10 @@ export function Results() {
                   <span className="font-medium">Current Segment:</span> {currentSegment?.name}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Contestants:</span> {currentContestants.length}
+                  <span className="font-medium">Contestants:</span> {currentContestants.length > 0 ? currentContestants.length : "None assigned"}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Advancing:</span> {currentSegment?.advancingCandidates || 0}
+                  <span className="font-medium">Advancing:</span> {currentSegment?.advancingCandidates || "Not set"}
                 </p>
               </div>
 
@@ -732,7 +732,7 @@ export function Results() {
           <AlertDialogHeader>
             <AlertDialogTitle>Advance Contestants</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to advance the top {currentSegment?.advancingCandidates || 0} contestants to the{" "}
+              You are about to advance the top {currentSegment?.advancingCandidates || "all"} contestants to the{" "}
               {nextSegment?.name} segment.
             </AlertDialogDescription>
           </AlertDialogHeader>

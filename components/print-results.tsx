@@ -68,10 +68,10 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
               padding: 0;
             }
             
-            /* Page setup */
+            /* Page setup - Enhanced A4 Landscape */
             @page {
-              size: landscape;
-              margin: 8mm;
+              size: A4 landscape;
+              margin: 10mm 8mm;
             }
             
             /* Container for each result section */
@@ -82,65 +82,143 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
               width: 100%;
             }
             
-            /* Header styles - more compact */
+            /* Enhanced header styles for PDF */
             .header {
               text-align: center;
-              margin-bottom: 3mm;
-              padding-bottom: 2mm;
-              border-bottom: 0.3mm solid #eee;
+              margin-bottom: 6mm;
+              padding: 4mm 0;
+              border-bottom: 0.3mm solid #2c3e50;
+              background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             }
             
             .header h1 {
-              font-size: 14pt;
+              font-size: 12pt;
               font-weight: bold;
-              margin-bottom: 1mm;
+              margin-bottom: 2mm;
+              color: #2c3e50;
+              text-transform: uppercase;
+              letter-spacing: 1pt;
             }
             
             .header h2 {
-              font-size: 12pt;
-              margin-bottom: 1mm;
+              font-size: 10pt;
+              margin-bottom: 2mm;
+              color: #34495e;
+              font-weight: 600;
             }
             
             .header p {
-              font-size: 8pt;
+              font-size: 9pt;
               margin-bottom: 0.5mm;
+              color: #7f8c8d;
             }
             
-            /* Division header - more compact */
+            .header .competition-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-top: 2mm;
+              font-size: 8pt;
+              color: #555;
+            }
+            
+            /* Enhanced division header */
             .division-header {
-              background-color: #f0f0f0;
-              padding: 1mm 2mm;
+              background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+              color: white;
+              padding: 2mm 3mm;
               font-weight: bold;
-              font-size: 10pt;
-              border-top-left-radius: 1mm;
-              border-top-right-radius: 1mm;
-              margin-top: 3mm;
+              font-size: 9pt;
+              border-top-left-radius: 2mm;
+              border-top-right-radius: 2mm;
+              margin-top: 4mm;
+              text-align: center;
+              text-transform: uppercase;
+              letter-spacing: 0.3pt;
             }
             
-            /* Table styles - more compact */
+            /* Enhanced table styles for PDF */
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 3mm;
-              font-size: 8pt;
+              margin-bottom: 6mm;
+              font-size: 9pt;
+              border: 0.2mm solid #2c3e50;
             }
             
             th, td {
-              border: 0.2mm solid #000;
-              padding: 1mm;
+              border: 0.1mm solid #2c3e50;
+              padding: 1.5mm 1mm;
               text-align: center;
+              vertical-align: middle;
             }
             
             th {
-              background-color: #f0f0f0;
+              background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+              color: white;
               font-weight: bold;
+              font-size: 8pt;
+              text-transform: uppercase;
+              letter-spacing: 0.3pt;
+              padding: 2mm 1mm;
             }
             
-            /* Column widths for better space usage */
+            tbody tr:nth-child(even) {
+              background-color: #f8f9fa;
+            }
+            
+            tbody tr:hover {
+              background-color: #e3f2fd;
+            }
+            
+            /* Enhanced column widths for better space usage */
             .col-rank { width: 5%; }
             .col-contestant { width: 15%; }
             .col-avg-rank { width: 6%; }
             .col-final-rank { width: 6%; }
+            
+            /* Dynamic judge column widths - more aggressive scaling */
+            .col-judge-score, .col-judge-rank {
+              width: calc(68% / var(--judge-count, 1));
+              min-width: 6mm;
+              max-width: 12mm;
+            }
+            
+            /* For tables with many judges, make text smaller */
+            .many-judges table {
+              font-size: 7pt;
+            }
+            
+            .many-judges th, .many-judges td {
+              padding: 0.8mm 0.5mm;
+              font-size: 7pt;
+            }
+            
+            .many-judges .col-contestant {
+              width: 12%;
+            }
+            
+            .many-judges .col-rank, .many-judges .col-avg-rank, .many-judges .col-final-rank {
+              width: 4%;
+            }
+            
+            /* For very many judges (8+), use even more compact layout */
+            .very-many-judges table {
+              font-size: 6pt;
+            }
+            
+            .very-many-judges th, .very-many-judges td {
+              padding: 0.5mm 0.3mm;
+              font-size: 6pt;
+            }
+            
+            .very-many-judges .col-contestant {
+              width: 10%;
+            }
+            
+            .very-many-judges .col-rank, .very-many-judges .col-avg-rank, .very-many-judges .col-final-rank {
+              width: 3%;
+            }
             
             /* Utility classes */
             .text-center { text-align: center; }
@@ -156,16 +234,26 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
               margin-bottom: 3mm;
             }
             
-            /* Signature section */
+            /* Signature section - only break if needed */
             .signature-section {
-              page-break-before: always;
+              page-break-before: auto;
               padding-top: 8mm;
+              margin-top: 10mm;
+            }
+            
+            /* Try to keep signature section with content */
+            .signature-section {
+              page-break-inside: avoid;
             }
             
             .signature-title {
               text-align: center;
-              font-size: 12pt;
-              margin-bottom: 10mm;
+              font-size: 9pt;
+              margin-bottom: 12mm;
+              font-weight: bold;
+              color: #2c3e50;
+              text-transform: uppercase;
+              letter-spacing: 0.5pt;
             }
             
             .signatures {
@@ -198,10 +286,10 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
             <div class="signatures">
               ${judges
                 .map(
-                  (judge) => `
+                  (judge, index) => `
                 <div class="signature">
                   <div class="signature-line"></div>
-                  <p class="signature-name">${judge.name}</p>
+                  <p class="signature-name">${judge.name} - J${index + 1}</p>
                 </div>
               `,
                 )
@@ -238,18 +326,18 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
   const renderResultSections = () => {
     let html = ""
 
-    // Add the main header section
+    // Add the enhanced main header section
     html += `
       <div class="result-section">
         <div class="header">
           <h1>${competitionSettings.name}</h1>
           <h2>${segmentName} - Final Results</h2>
           <p>${format(new Date(), "MMMM d, yyyy")}</p>
-          <p>
-            <span class="font-bold">Ranking Method:</span> ${competitionSettings.ranking.method.toUpperCase()}
-            <span style="margin: 0 3mm;">|</span>
-            <span class="font-bold">Tiebreaker:</span> ${competitionSettings.ranking.tiebreaker}
-          </p>
+          <div class="competition-info">
+            <span><strong>Ranking Method:</strong> ${competitionSettings.ranking.method.toUpperCase()}</span>
+            <span><strong>Tiebreaker:</strong> ${competitionSettings.ranking.tiebreaker}</span>
+            <span><strong>Total Contestants:</strong> ${segmentContestants.length}</span>
+          </div>
         </div>
     `
 
@@ -282,21 +370,21 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
   }
 
   // Render a table for PDF as HTML string
-  const renderResultTable = (contestantsGroup, groupTitle?: string) => {
+  const renderResultTable = (contestantsGroup: typeof segmentContestants, groupTitle?: string) => {
     // Calculate rankings
     const rankings = calculateSegmentScores(contestantsGroup, judges, scores, segmentId, competitionSettings.ranking)
 
     // For each judge, calculate their individual rankings
-    const judgeRankings = {}
+    const judgeRankings: Record<string, Record<string, number>> = {}
 
     judges.forEach((judge) => {
-      const judgeScores = {}
+      const judgeScores: Record<string, number> = {}
 
       contestantsGroup.forEach((contestant) => {
         // Get total score from this judge for this contestant
         let totalScore = 0
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-          totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          totalScore = Object.values(scores[segmentId][contestant.id][judge.id] as Record<string, number>).reduce((sum, score) => sum + score, 0)
           // Round the total score
           totalScore = roundToTwoDecimals(totalScore)
         }
@@ -324,12 +412,17 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
       `
     }
 
-    // Calculate column width for judge columns
-    const judgeColWidth = (68 / (judges.length * 2)).toFixed(1)
+    // Calculate column width for judge columns with enhanced spacing
+    const judgeColWidth = (62 / (judges.length * 2)).toFixed(1)
 
-    // Start table
+    // Determine if we need compact styling for many judges
+    const hasManyJudges = judges.length >= 6
+    const hasVeryManyJudges = judges.length >= 8
+    const tableClass = hasVeryManyJudges ? 'very-many-judges' : (hasManyJudges ? 'many-judges' : '')
+    
+    // Start table with enhanced styling
     html += `
-      <table>
+      <table class="${tableClass}" style="--judge-count: ${judges.length};">
         <colgroup>
           <col class="col-rank">
           <col class="col-contestant">
@@ -337,11 +430,11 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
 
     // Add column definitions for judge scores and ranks
     judges.forEach(() => {
-      html += `<col style="width: ${judgeColWidth}%;">`
+      html += `<col class="col-judge-score" style="width: ${judgeColWidth}%;">`
     })
 
     judges.forEach(() => {
-      html += `<col style="width: ${judgeColWidth}%;">`
+      html += `<col class="col-judge-rank" style="width: ${judgeColWidth}%;">`
     })
 
     html += `
@@ -363,13 +456,13 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
     `
 
     // Add judge names for scores
-    judges.forEach((judge) => {
-      html += `<th class="text-xs">${judge.name}</th>`
+    judges.forEach((judge, index) => {
+      html += `<th class="text-xs">J${index + 1}</th>`
     })
 
     // Add judge names for ranks
-    judges.forEach((judge) => {
-      html += `<th class="text-xs">${judge.name}</th>`
+    judges.forEach((judge, index) => {
+      html += `<th class="text-xs">J${index + 1}</th>`
     })
 
     // Complete header row
@@ -467,7 +560,7 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
         // Get total score from this judge for this contestant
         let totalScore = 0
         if (scores[segmentId]?.[contestant.id]?.[judge.id]) {
-          totalScore = Object.values(scores[segmentId][contestant.id][judge.id]).reduce((sum, score) => sum + score, 0)
+          totalScore = Object.values(scores[segmentId][contestant.id][judge.id] as Record<string, number>).reduce((sum, score) => sum + score, 0)
           // Round the total score
           totalScore = roundToTwoDecimals(totalScore)
         }
@@ -484,6 +577,10 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
       return rankA - rankB
     })
 
+    // Determine if we need compact styling for many judges
+    const hasManyJudges = judges.length >= 6
+    const hasVeryManyJudges = judges.length >= 8
+    
     return (
       <div className="mb-6">
         {groupTitle && (
@@ -492,7 +589,7 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
           </div>
         )}
 
-        <table className="w-full border-collapse print-table">
+        <table className={`w-full border-collapse print-table ${hasVeryManyJudges ? 'very-many-judges' : (hasManyJudges ? 'many-judges' : '')}`}>
           <thead>
             <tr className="print-header-row">
               <th className="print-cell text-center">Rank</th>
@@ -510,15 +607,15 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
               <th className="print-cell"></th>
               <th className="print-cell"></th>
               {/* Judge names for raw scores */}
-              {judges.map((judge) => (
+              {judges.map((judge, index) => (
                 <th key={`score-${judge.id}`} className="print-cell text-center px-2 py-1 text-xs">
-                  {judge.name}
+                  J{index + 1}
                 </th>
               ))}
               {/* Judge names for ranks */}
-              {judges.map((judge) => (
+              {judges.map((judge, index) => (
                 <th key={`rank-${judge.id}`} className="print-cell text-center px-2 py-1 text-xs">
-                  {judge.name}
+                  J{index + 1}
                 </th>
               ))}
               <th className="print-cell"></th>
@@ -605,14 +702,14 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button onClick={handlePrint} className="flex items-center gap-2 print:hidden" variant="outline">
+        <Button onClick={handlePrint} className="flex items-center gap-2" variant="outline">
           <Printer className="h-4 w-4" />
           Print (Browser)
         </Button>
 
         <Button
           onClick={generatePDF}
-          className="flex items-center gap-2 print:hidden"
+          className="flex items-center gap-2"
           variant="default"
           disabled={isGenerating}
         >
@@ -633,15 +730,15 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
       {/* Content for browser printing */}
       <div ref={printRef} className="hidden print:block">
         <div className="print-container">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold">{competitionSettings.name}</h1>
-            <h2 className="text-xl">{segmentName} - Final Results</h2>
-            <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM d, yyyy")}</p>
-            <p className="text-sm mt-1">
-              <span className="font-medium">Ranking Method:</span> {competitionSettings.ranking.method.toUpperCase()}
-              <span className="mx-2">|</span>
-              <span className="font-medium">Tiebreaker:</span> {competitionSettings.ranking.tiebreaker}
-            </p>
+          <div className="text-center mb-6 print-header">
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-gray-800">{competitionSettings.name}</h1>
+            <h2 className="text-xl font-semibold text-gray-700">{segmentName} - Final Results</h2>
+            <p className="text-sm text-gray-600">{format(new Date(), "MMMM d, yyyy")}</p>
+            <div className="flex justify-between items-center mt-2 text-xs text-gray-600">
+              <span><strong>Ranking Method:</strong> {competitionSettings.ranking.method.toUpperCase()}</span>
+              <span><strong>Tiebreaker:</strong> {competitionSettings.ranking.tiebreaker}</span>
+              <span><strong>Total Contestants:</strong> {segmentContestants.length}</span>
+            </div>
           </div>
 
           {/* Results Tables */}
@@ -662,12 +759,12 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
           )}
 
           {/* Signature Section */}
-          <div className="mt-8 page-break-before">
+          <div className="mt-8 signature-section">
             <div className="grid grid-cols-3 gap-6">
-              {judges.map((judge) => (
+              {judges.map((judge, index) => (
                 <div key={judge.id} className="text-center">
                   <div className="border-b border-black pt-12"></div>
-                  <p className="mt-1">{judge.name}</p>
+                  <p className="mt-1">{judge.name} - J{index + 1}</p>
                 </div>
               ))}
             </div>
@@ -679,8 +776,8 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
       <style jsx global>{`
         @media print {
           @page {
-            size: landscape;
-            margin: 0.75cm;
+            size: A4 landscape;
+            margin: 10mm 8mm;
           }
           
           body * {
@@ -705,28 +802,71 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
             border-collapse: collapse;
             margin-bottom: 15px;
             page-break-inside: avoid;
+            font-size: 9pt;
+            table-layout: fixed;
+          }
+          
+          /* Compact styling for many judges */
+          .print-table.many-judges {
+            font-size: 7pt;
+          }
+          
+          .print-table.many-judges .print-cell {
+            padding: 0.8mm 0.5mm;
+            font-size: 7pt;
+          }
+          
+          /* Very compact styling for very many judges */
+          .print-table.very-many-judges {
+            font-size: 6pt;
+          }
+          
+          .print-table.very-many-judges .print-cell {
+            padding: 0.5mm 0.3mm;
+            font-size: 6pt;
           }
           
           .print-cell {
-            border: 1px solid #000;
-            padding: 6px;
+            border: 0.1mm solid #2c3e50;
+            padding: 1.5mm 1mm;
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 9pt;
+            vertical-align: middle;
           }
           
           .print-header-row {
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.2pt;
+          }
+          
+          .print-row:nth-child(even) {
+            background-color: #f8f9fa;
           }
           
           .print-row {
             page-break-inside: avoid;
           }
           
+          .print-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-bottom: 2px solid #2c3e50;
+            margin-bottom: 20px;
+          }
+          
           .print-division {
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
             font-weight: bold;
-            padding: 6px;
+            padding: 8px 12px;
             margin-top: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.3pt;
+            border-radius: 4px 4px 0 0;
           }
           
           /* Ensure signature lines print well */
@@ -736,6 +876,12 @@ export function PrintResults({ segmentId }: { segmentId: string }) {
           }
           
           /* Control page breaks */
+          .signature-section {
+            page-break-before: auto;
+            margin-top: 20px;
+            padding-top: 15px;
+          }
+          
           .page-break-before {
             page-break-before: auto;
           }

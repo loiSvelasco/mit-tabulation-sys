@@ -148,7 +148,7 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
 
                             return (
                               <TableCell key={judge.id} className="text-center align-middle">
-                                {judgeTotal > 0 ? judgeTotal.toFixed(2) : "0.00"}
+                                {judgeTotal > 0 ? judgeTotal.toFixed(2) : "-"}
                                 {totalMaxScore > 0 && (
                                   <span className="text-xs text-muted-foreground ml-1">
                                     ({roundToTwoDecimals(((judgeTotal || 0) / totalMaxScore) * 100).toFixed(0)}%)
@@ -225,7 +225,7 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
 
                                             return (
                                               <TableCell key={judge.id} className="text-center">
-                                                {criterionScore > 0 ? criterionScore.toFixed(2) : "0.00"}
+                                                {criterionScore > 0 ? criterionScore.toFixed(2) : "-"}
                                                 <span className="text-xs text-muted-foreground ml-1">
                                                   ({percentage.toFixed(0)}%)
                                                 </span>
@@ -257,7 +257,7 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
 
                                         return (
                                           <TableCell key={judge.id} className="text-center font-medium">
-                                            {total > 0 ? total.toFixed(2) : "0.00"}
+                                            {total > 0 ? total.toFixed(2) : "-"}
                                           </TableCell>
                                         )
                                       })}
@@ -340,9 +340,24 @@ const DetailedScores: React.FC<Props> = ({ segmentId }) => {
         <div className="space-y-6">
           {maleContestants.length > 0 && renderDetailedScoresTable(maleContestants, "Male Division")}
           {femaleContestants.length > 0 && renderDetailedScoresTable(femaleContestants, "Female Division")}
+          {maleContestants.length === 0 && femaleContestants.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground">
+              <div className="text-4xl mb-2">📊</div>
+              <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+              <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+            </div>
+          )}
         </div>
       ) : (
-        renderDetailedScoresTable(segmentContestants)
+        segmentContestants.length > 0 ? (
+          renderDetailedScoresTable(segmentContestants)
+        ) : (
+          <div className="p-8 text-center text-muted-foreground">
+            <div className="text-4xl mb-2">📊</div>
+            <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+            <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+          </div>
+        )
       )}
     </div>
   )

@@ -189,9 +189,24 @@ const CriteriaScores: React.FC<Props> = ({ segmentId }) => {
         <div className="space-y-6">
           {maleContestants.length > 0 && renderCriteriaScoresTable(maleContestants, "Male Division")}
           {femaleContestants.length > 0 && renderCriteriaScoresTable(femaleContestants, "Female Division")}
+          {maleContestants.length === 0 && femaleContestants.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground">
+              <div className="text-4xl mb-2">📊</div>
+              <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+              <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+            </div>
+          )}
         </div>
       ) : (
-        renderCriteriaScoresTable(segmentContestants)
+        segmentContestants.length > 0 ? (
+          renderCriteriaScoresTable(segmentContestants)
+        ) : (
+          <div className="p-8 text-center text-muted-foreground">
+            <div className="text-4xl mb-2">📊</div>
+            <h3 className="text-lg font-medium mb-1">No Data Yet</h3>
+            <p className="text-sm">No contestants have been assigned to this segment yet.</p>
+          </div>
+        )
       )}
     </div>
   )
