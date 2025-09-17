@@ -46,33 +46,16 @@ export default function MonitorScoring() {
     try {
       setIsLoading(true)
 
-      // Find the active competition
-      const competitionsResponse = await fetch("/api/competitions")
-      if (!competitionsResponse.ok) {
-        throw new Error("Failed to fetch competitions")
+      // Use the same competition selection logic as other pages
+      const { getBestCompetitionId } = await import("@/lib/competition-selection")
+      const bestCompetitionId = await getBestCompetitionId()
+
+      if (!bestCompetitionId) {
+        throw new Error("No competitions found. Please create a competition first.")
       }
 
-      const competitions = await competitionsResponse.json()
-      const activeCompetition = competitions.find((comp: any) => comp.is_active)
-
-      if (!activeCompetition) {
-        if (competitions.length > 0) {
-          const firstCompId = competitions[0].id
-          setCompetitionId(firstCompId)
-
-          // Set it as active
-          await fetch(`/api/competitions/${firstCompId}/set-active`, {
-            method: "POST",
-          })
-
-          await loadCompetition(firstCompId)
-        } else {
-          throw new Error("No competitions found. Please create a competition first.")
-        }
-      } else {
-        setCompetitionId(activeCompetition.id)
-        await loadCompetition(activeCompetition.id)
-      }
+      setCompetitionId(bestCompetitionId)
+      await loadCompetition(bestCompetitionId)
 
       setIsInitialized(true)
       setIsLoading(false)

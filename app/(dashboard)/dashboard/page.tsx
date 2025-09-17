@@ -15,7 +15,6 @@ import { RankingConfiguration } from "@/components/ranking-configuration"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import EnhancedJudgeScoring from "@/components/judge-scoring"
 import { ResetScoresButton } from "@/components/admin/ResetScoresButton"
 import { useEventSync } from "@/hooks/useEventSync"
@@ -53,44 +52,71 @@ const Dashboard = () => {
   // Set up real-time event synchronization
   useEventSync()
 
-  // Fetch user's competitions
-  useEffect(() => {
-    const fetchCompetitions = async () => {
-      try {
-        const response = await fetch("/api/competitions")
-        if (response.ok) {
-          const data = await response.json()
-          setCompetitions(data)
+  // Fetch user's competitions and auto-load the best one
+  const fetchCompetitions = async () => {
+    try {
+      const response = await fetch("/api/competitions")
+      if (response.ok) {
+        const data = await response.json()
+        setCompetitions(data)
 
-          // Try to load the previously selected competition from localStorage
-          const savedCompetitionId = localStorage.getItem(SELECTED_COMPETITION_KEY)
+        // Auto-select the best competition to work with
+        if (data.length > 0) {
+          // Priority: 1) Active competition, 2) Previously selected, 3) Most recent
+          let competitionToLoad = null
 
-          if (savedCompetitionId) {
-            const competitionId = Number.parseInt(savedCompetitionId, 10)
-            // Check if the competition still exists
-            const competitionExists = data.some((comp: Competition) => comp.id === competitionId)
-
-            if (competitionExists) {
-              setSelectedCompetition(competitionId)
-            } else if (data.length > 0) {
-              // If the saved competition doesn't exist anymore, select the first one
-              setSelectedCompetition(data[0].id)
+          // First priority: Look for active competition
+          const activeCompetition = data.find((comp: Competition) => comp.is_active)
+          if (activeCompetition) {
+            competitionToLoad = activeCompetition.id
+            console.log(`Dashboard: Using active competition ${activeCompetition.id} (${activeCompetition.name})`)
+          } else {
+            // Second priority: Previously selected competition
+            const savedCompetitionId = localStorage.getItem(SELECTED_COMPETITION_KEY)
+            if (savedCompetitionId) {
+              const competitionId = Number.parseInt(savedCompetitionId, 10)
+              const competitionExists = data.some((comp: Competition) => comp.id === competitionId)
+              if (competitionExists) {
+                competitionToLoad = competitionId
+                console.log(`Dashboard: Using previously selected competition ${competitionId}`)
+              }
             }
-          } else if (data.length > 0) {
-            // If no saved competition, select the first one or an active one
-            const activeCompetition = data.find((comp: Competition) => comp.is_active)
-            setSelectedCompetition(activeCompetition ? activeCompetition.id : data[0].id)
+
+            // Third priority: Most recent competition
+            if (!competitionToLoad) {
+              competitionToLoad = data[0].id
+              console.log(`Dashboard: Using most recent competition ${competitionToLoad}`)
+            }
+          }
+
+          if (competitionToLoad) {
+            setSelectedCompetition(competitionToLoad)
+            // Update localStorage to reflect the current selection
+            localStorage.setItem(SELECTED_COMPETITION_KEY, competitionToLoad.toString())
           }
         }
-      } catch (error) {
-        console.error("Error fetching competitions:", error)
       }
+    } catch (error) {
+      console.error("Error fetching competitions:", error)
     }
+  }
 
+  useEffect(() => {
     if (session) {
       fetchCompetitions()
     }
   }, [session])
+
+  // Refresh competitions when window regains focus (e.g., returning from management page)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log("Dashboard: Window focused, refreshing competitions...")
+      fetchCompetitions()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   // Load selected competition
   useEffect(() => {
@@ -235,14 +261,6 @@ const Dashboard = () => {
     }
   }
 
-  // Modify the competition selection handler to set the selected competition as active
-  const handleCompetitionChange = async (value: string) => {
-    const competitionId = Number.parseInt(value)
-    setSelectedCompetition(competitionId)
-
-    // Set the selected competition as active
-    await setCompetitionActive(competitionId)
-  }
 
   const handleOpenPublicDisplay = () => {
     if (selectedCompetition) {
@@ -260,36 +278,32 @@ const Dashboard = () => {
     <div>
       {/* Your existing dashboard content */}
       <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-6">
-          <span className="inline-flex items-center gap-2 text-2xl font-bold">
-            <Trophy size={24} />
-            {isCreatingNew ? "New Competition" : "Setup Competition"}
-          </span>
-          <div className="flex items-center gap-4">
-            {competitions.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Select
-                  value={selectedCompetition?.toString() || ""}
-                  onValueChange={(value) => {
-                    const id = Number.parseInt(value)
-                    setSelectedCompetition(id)
-                    setCompetitionActive(id)
-                  }}
-                  disabled={isLoadingCompetition || isCreatingNew}
-                >
-                  <SelectTrigger className="w-[250px]">
-                    <SelectValue placeholder="Select a competition" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {competitions.map((comp) => (
-                      <SelectItem key={comp.id} value={comp.id.toString()}>
-                        {comp.name} {comp.is_active ? "(Active)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Trophy className="h-8 w-8 text-primary" />
+              {isCreatingNew ? "New Competition" : "Competition Setup"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isCreatingNew 
+                ? "Configure your new competition settings, contestants, and judges"
+                : "Configure competition settings, manage contestants and judges, and set up scoring"
+              }
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="outline">
+              <Link href="/dashboard/competitions">
+                <Trophy className="mr-2 h-4 w-4" /> Manage Competitions
+              </Link>
+            </Button>
+
+            <Button asChild variant="outline">
+              <Link href="/dashboard/manage-competition" target="_blank">
+                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Monitor Scoring
+              </Link>
+            </Button>
 
             <Button
               variant={isCreatingNew ? "destructive" : "outline"}
@@ -310,40 +324,37 @@ const Dashboard = () => {
               )}
             </Button>
 
-            <ResetScoresButton />
-
             <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
               <Save size={16} />
               {isSaving ? "Saving..." : "Save Competition"}
             </Button>
-
-            {/* {selectedCompetition && <SyncJudgesButton competitionId={selectedCompetition} />} */}
-
-            {/* <Button asChild>
-              <Link href="/judge">
-                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> View Judge Dashboard
-              </Link>
-            </Button> */}
-
-            {/* <Button asChild>
-              <Link href="/dashboard/monitor-scoring" target="_blank">
-                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Monitoring of Scores
-              </Link>
-            </Button> */}
-
-            <Button asChild>
-              <Link href="/dashboard/manage-competition" target="_blank">
-                <LaptopMinimalCheck className="mr-2 h-4 w-4" /> Manage Competition
-              </Link>
-            </Button>
-
-            {/* {selectedCompetition && (
-              <Button variant="outline" onClick={handleOpenPublicDisplay} className="flex items-center gap-2">
-                <Tv2 className="h-4 w-4 mr-2" /> Public Display
-              </Button>
-            )} */}
           </div>
         </div>
+
+        {/* Current Competition Info */}
+        {selectedCompetition && !isCreatingNew && (
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <div>
+                  <h3 className="font-semibold text-primary">
+                    {competitions.find(c => c.id === selectedCompetition)?.name || "Loading..."}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Currently working on this competition
+                  </p>
+                </div>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/competitions">
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Switch Competition
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
 
         {lastSaved && (
           <div className="flex items-center text-sm text-muted-foreground mb-4">
