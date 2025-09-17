@@ -324,7 +324,9 @@ const Dashboard = () => {
               )}
             </Button>
 
-            <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
+            <ResetScoresButton />
+            
+            <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
               <Save size={16} />
               {isSaving ? "Saving..." : "Save Competition"}
             </Button>
@@ -409,6 +411,9 @@ const Dashboard = () => {
           <TabsContent value="data">
             <div className="space-y-6">
               <DataManagement />
+              <div className="flex justify-center">
+                <ResetScoresButton />
+              </div>
               <ScoreSyncTest />
               <AccessCodeMigrationTest />
             </div>

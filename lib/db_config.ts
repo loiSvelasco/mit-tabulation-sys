@@ -87,5 +87,21 @@ export async function checkConnection(): Promise<boolean> {
   }
 }
 
+// Helper function to execute database transactions
+export async function executeTransaction(operations: (connection: any) => Promise<void>) {
+  const connection = await pool.getConnection()
+  
+  try {
+    await connection.beginTransaction()
+    await operations(connection)
+    await connection.commit()
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
+  }
+}
+
 // Export the pool for direct access if needed
 export { pool }
