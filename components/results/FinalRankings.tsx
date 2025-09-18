@@ -1,7 +1,7 @@
 "use client"
 
 // Let's update the imports section to add the needed components
-import React, { useState, useCallback, useMemo } from "react"
+import React, { useState, useCallback, useMemo, useEffect } from "react"
 import { Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight, HelpCircle, Info, BarChart2, LineChart, PieChart } from "lucide-react"
@@ -242,6 +242,8 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
   const separateByGender = competitionSettings.separateRankingByGender
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [refreshKey, setRefreshKey] = useState(0) // Used to force re-render
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   // Get the selected segment and criteria
   const segment = useMemo(
@@ -269,6 +271,20 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
     false
   )
 
+  // Auto-refresh rankings when scores change in the store
+  useEffect(() => {
+    // Only refresh if we have data and it's not already refreshing
+    if (segmentId && segmentContestants.length > 0 && judges.length > 0 && !isRefreshing) {
+      console.log("Scores changed, auto-refreshing rankings...")
+      // Use a small delay to avoid too frequent refreshes
+      const timeoutId = setTimeout(() => {
+        refreshRankings()
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [scores, segmentId, segmentContestants.length, judges.length, isRefreshing, refreshRankings])
+
   // Group contestants by gender if needed - using case-insensitive comparison
   const maleContestants = useMemo(
     () => segmentContestants.filter((c) => c.gender?.toLowerCase() === "male"),
@@ -287,6 +303,24 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
       [contestantId]: !prev[contestantId],
     }))
   }, [])
+
+  // Enhanced refresh handler with proper async handling
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return // Prevent multiple clicks
+    
+    setIsRefreshing(true)
+    setRefreshError(null)
+    
+    try {
+      await refreshRankings()
+      console.log("Rankings refreshed successfully")
+    } catch (error) {
+      console.error("Error refreshing rankings:", error)
+      setRefreshError(error instanceof Error ? error.message : "Failed to refresh rankings")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isRefreshing, refreshRankings])
 
   // Reset function for debugging
   const handleReset = useCallback(() => {
@@ -363,18 +397,48 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={refreshRankings}
-            className="px-3 py-1 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20 flex items-center gap-1"
-            title="Refresh rankings from database"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={`px-3 py-1 text-sm rounded flex items-center gap-1 transition-colors ${
+              isRefreshing 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-primary/10 text-primary hover:bg-primary/20'
+            }`}
+            title={isRefreshing ? "Refreshing rankings..." : "Refresh rankings from database"}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
+            {isRefreshing ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <PrintResults key={segment?.id} segmentId={segmentId} />
         </div>
       </div>
+
+      {/* Error display for refresh failures */}
+      {refreshError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-red-700">Refresh failed: {refreshError}</span>
+            <button
+              onClick={() => setRefreshError(null)}
+              className="ml-auto text-red-500 hover:text-red-700"
+              title="Dismiss error"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="text-sm text-muted-foreground mb-4">
         Using{" "}
@@ -435,7 +499,7 @@ const FinalRankings: React.FC<Props> = ({ segmentId }) => {
         </div>
       ) : (
         segmentContestants.length > 0 ? (
-          renderRankingsTable(segmentContestants)
+        renderRankingsTable(segmentContestants)
         ) : (
           <div className="p-8 text-center text-muted-foreground">
             <div className="text-4xl mb-2">📊</div>

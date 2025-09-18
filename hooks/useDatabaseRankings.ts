@@ -27,7 +27,7 @@ export function useDatabaseRankings(
   competitionSettings: any | undefined,
   forceRefresh: boolean = false
 ): DatabaseRankingCalculations {
-  const { selectedCompetitionId } = useCompetitionStore()
+  const { selectedCompetitionId, scores } = useCompetitionStore()
   const [rankingData, setRankingData] = useState<RankingData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,11 +57,20 @@ export function useDatabaseRankings(
     fetchRankingData()
   }, [fetchRankingData])
 
-  // Function to manually refresh rankings
-  const refreshRankings = useCallback(() => {
-    if (selectedCompetitionId) {
+  // Invalidate cache and refresh when scores change
+  useEffect(() => {
+    if (selectedCompetitionId && scores) {
+      console.log("Scores changed, invalidating ranking cache...")
       invalidateRankingCache(selectedCompetitionId)
       fetchRankingData()
+    }
+  }, [scores, selectedCompetitionId, fetchRankingData])
+
+  // Function to manually refresh rankings
+  const refreshRankings = useCallback(async () => {
+    if (selectedCompetitionId) {
+      invalidateRankingCache(selectedCompetitionId)
+      await fetchRankingData()
     }
   }, [selectedCompetitionId, fetchRankingData])
 
