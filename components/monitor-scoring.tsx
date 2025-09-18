@@ -19,6 +19,7 @@ import useCompetitionStore from "@/utils/useCompetitionStore"
 import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { SmoothTransition } from "@/components/ui/smooth-transition"
 import { SimpleLoading, SimpleActivityIndicator } from "@/components/ui/simple-loading"
+import { PollingControls } from "@/components/ui/polling-controls"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -36,8 +37,8 @@ export default function MonitorScoring() {
   const { competitionSettings, contestants, judges, scores, activeCriteria, loadCompetition, selectedCompetitionId } =
     useCompetitionStore()
 
-  // Use optimized polling for reliable updates (5 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 5000)
+  // Use optimized polling for reliable updates (15 second interval with change detection)
+  const { isPolling, isPaused, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling, pausePolling, resumePolling } = useOptimizedPolling(competitionId, 15000)
 
   // Initialize the component
   const initialize = useCallback(async () => {
@@ -51,8 +52,8 @@ export default function MonitorScoring() {
       const bestCompetitionId = await getBestCompetitionId()
 
       if (!bestCompetitionId) {
-        throw new Error("No competitions found. Please create a competition first.")
-      }
+          throw new Error("No competitions found. Please create a competition first.")
+        }
 
       setCompetitionId(bestCompetitionId)
       await loadCompetition(bestCompetitionId)
@@ -683,17 +684,30 @@ export default function MonitorScoring() {
 
       {/* Scoring Status */}
       <SimpleLoading isLoading={isUpdating}>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Scoring Status</CardTitle>
-            <CardDescription>Detailed view of scoring status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="overview">
-              <TabsList className="mb-4 w-full">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                {activeCriteriaDetails.length > 0 && <TabsTrigger value="criteria">By Criteria</TabsTrigger>}
-              </TabsList>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+          <CardTitle>Scoring Status</CardTitle>
+          <CardDescription>Detailed view of scoring status</CardDescription>
+            </div>
+            <PollingControls
+              isPolling={isPolling}
+              isPaused={isPaused}
+              lastUpdate={lastUpdate}
+              onPause={pausePolling}
+              onResume={resumePolling}
+              onRefresh={handleManualRefresh}
+              isRefreshing={isRefreshing}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="overview">
+            <TabsList className="mb-4 w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              {activeCriteriaDetails.length > 0 && <TabsTrigger value="criteria">By Criteria</TabsTrigger>}
+            </TabsList>
 
             <TabsContent value="overview">
               {competitionSettings?.separateRankingByGender ? (

@@ -18,6 +18,7 @@ import { calculateSegmentScores } from "@/utils/rankingUtils"
 import ActiveCriteriaManager from "@/components/admin/active-criteria-manager"
 import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { SmoothTransition } from "@/components/ui/smooth-transition"
+import { PollingControls } from "@/components/ui/polling-controls"
 import { SimpleLoading, SimpleActivityIndicator } from "@/components/ui/simple-loading"
 import { Badge } from "@/components/ui/badge"
 import { JudgeFinalizationStatus } from "@/components/admin/judge-finalization-status"
@@ -141,8 +142,8 @@ export function Results() {
     console.log("Selected Competition ID from store:", selectedCompetitionId)
   }, [competitionSettings, selectedCompetitionId])
 
-  // Use optimized polling for reliable updates (5 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling } = useOptimizedPolling(selectedCompetitionId, 5000)
+  // Use optimized polling for reliable updates (15 second interval with change detection)
+  const { isPolling, isPaused, lastUpdate, error, hasChanges, isUpdating, refresh, startPolling, stopPolling, pausePolling, resumePolling } = useOptimizedPolling(selectedCompetitionId, 15000)
 
   // Find the next segment ID
   const currentSegmentIndex = segments.findIndex((segment) => segment.id === selectedSegmentId)
@@ -502,27 +503,17 @@ export function Results() {
 
   return (
     <div className="space-y-4">
-      {/* Polling status indicator */}
+      {/* Polling Controls */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className={`h-2 w-2 rounded-full ${isPolling ? "bg-green-500" : "bg-red-500"}`}></div>
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          <span>{isPolling ? "Auto-refresh active" : "Auto-refresh inactive"}</span>
-          {lastUpdate && (
-            <Badge variant="outline" className="ml-2">
-              Last update: {lastUpdate.toLocaleTimeString()}
-            </Badge>
-          )}
-          {error && <span className="text-red-500 ml-2">{error}</span>}
-          <div className="ml-auto flex gap-2">
-            {/* <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
-              {isPolling ? "Pause Updates" : "Resume Updates"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={manualRefresh}>
-              <RefreshCw className="h-3 w-3 mr-1" /> Refresh Now
-            </Button> */}
-          </div>
-        </div>
+        <PollingControls
+          isPolling={isPolling}
+          isPaused={isPaused}
+          lastUpdate={lastUpdate}
+          onPause={pausePolling}
+          onResume={resumePolling}
+          onRefresh={manualRefresh}
+          isRefreshing={isSaving}
+        />
 
         {!selectedCompetitionId && (
           <Alert variant="destructive" className="mt-2">
@@ -774,22 +765,22 @@ export function Results() {
 
       {/* Results Tabs */}
       <SimpleLoading isLoading={isUpdating}>
-        <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
-            <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
-            <TabsTrigger value="minor-awards">Minor Awards</TabsTrigger>
-          </TabsList>
-          <TabsContent value="final-rankings">
-            <FinalRankings segmentId={selectedSegmentId} />
-          </TabsContent>
-          <TabsContent value="criteria-scores">
-            <CriteriaScores segmentId={selectedSegmentId} />
-          </TabsContent>
-          <TabsContent value="minor-awards">
-            <MinorAwardsCalculator />
-          </TabsContent>
-        </Tabs>
+      <Tabs defaultValue="final-rankings" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="final-rankings">Final Rankings</TabsTrigger>
+          <TabsTrigger value="criteria-scores">Criteria Scores</TabsTrigger>
+          <TabsTrigger value="minor-awards">Minor Awards</TabsTrigger>
+        </TabsList>
+        <TabsContent value="final-rankings">
+          <FinalRankings segmentId={selectedSegmentId} />
+        </TabsContent>
+        <TabsContent value="criteria-scores">
+          <CriteriaScores segmentId={selectedSegmentId} />
+        </TabsContent>
+        <TabsContent value="minor-awards">
+          <MinorAwardsCalculator />
+        </TabsContent>
+      </Tabs>
       </SimpleLoading>
 
       {/* Simple activity indicator */}

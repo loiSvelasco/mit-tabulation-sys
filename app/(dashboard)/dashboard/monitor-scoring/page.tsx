@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { useOptimizedPolling } from "@/hooks/useOptimizedPolling"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PollingControls } from "@/components/ui/polling-controls"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { getBestCompetitionId, saveCompetitionSelection, setActiveCompetition } from "@/lib/competition-selection"
@@ -51,7 +52,7 @@ export default function MonitorScoring() {
   const previousActiveCriteriaRef = useRef<string>("")
 
   // Use optimized polling for real-time updates (3 second interval with change detection)
-  const { isPolling, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling } = useOptimizedPolling(competitionId, 3000)
+  const { isPolling, isPaused, lastUpdate, error, hasChanges, refresh, startPolling, stopPolling, pausePolling, resumePolling } = useOptimizedPolling(competitionId, 15000)
 
   // Initialize the component - load the best competition
   const initialize = useCallback(async () => {
@@ -850,24 +851,15 @@ export default function MonitorScoring() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${isPolling ? "bg-green-500" : "bg-red-500"}`}></div>
-          <span className="text-sm text-muted-foreground">
-            {isPolling ? "Auto-refresh active" : "Auto-refresh inactive"}
-          </span>
-          {lastUpdate && (
-            <Badge variant="outline" className="ml-2">
-              Last update: {lastUpdate.toLocaleTimeString()}
-            </Badge>
-          )}
-          {/* <Button size="sm" variant="outline" onClick={isPolling ? stopPolling : startPolling}>
-            {isPolling ? "Pause Updates" : "Resume Updates"}
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleManualRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh Now
-          </Button> */}
-        </div>
+        <PollingControls
+          isPolling={isPolling}
+          isPaused={isPaused}
+          lastUpdate={lastUpdate}
+          onPause={pausePolling}
+          onResume={resumePolling}
+          onRefresh={handleManualRefresh}
+          isRefreshing={isRefreshing}
+        />
       </div>
 
       {/* Top row: Active Criteria and Scoring Progress side by side */}

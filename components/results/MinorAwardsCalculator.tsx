@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import React, { useState, useMemo, useRef } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,7 @@ interface MinorAwardResult {
   totalPoints: number
   rank: number
   criteriaAverages: Record<string, CriterionAverage> // Store averages by criterion ID
+  judgeScores: Record<string, Record<string, number>> // Store individual judge scores by criterion ID and judge ID
 }
 
 export function MinorAwardsCalculator() {
@@ -205,11 +206,13 @@ export function MinorAwardsCalculator() {
         let judgeCount = 0
 
         // Calculate average score for this criterion across all judges
+        const judgeScoresForCriterion: Record<string, number> = {}
         Object.keys(contestantScoresForSegment).forEach((judgeId) => {
           const judgeScores = contestantScoresForSegment[judgeId] || {}
           const score = judgeScores[criterionId]
 
           if (score !== undefined) {
+            judgeScoresForCriterion[judgeId] = score
             criterionTotal += score
             judgeCount++
           }
@@ -225,6 +228,7 @@ export function MinorAwardsCalculator() {
               contestantName: contestantData.name,
               gender: contestantData.gender,
               criteriaAverages: {},
+              judgeScores: {},
             }
           }
 
@@ -245,6 +249,9 @@ export function MinorAwardsCalculator() {
             maxScore,
             percentage: (criterionAverage / maxScore) * 100,
           }
+
+          // Store individual judge scores for this criterion
+          contestantScores[contestantId].judgeScores[criterionId] = judgeScoresForCriterion
 
           // Add this criterion's average to the contestant's total
           contestantScores[contestantId].totalScore += criterionAverage
@@ -268,13 +275,22 @@ export function MinorAwardsCalculator() {
     const calculatedResults: MinorAwardResult[] = []
 
     Object.keys(contestantScores).forEach((contestantId) => {
-      const { totalScore, totalPoints, count, contestantName, gender, criteriaAverages } =
+      const { totalScore, totalPoints, count, contestantName, gender, criteriaAverages, judgeScores } =
         contestantScores[contestantId]
 
       // Only include contestants who have scores for all selected criteria
       if (count === selectedCriteriaDetails.length) {
-        const averageScore = totalScore / count
-        const percentageScore = (totalScore / totalMaxScore) * 100
+        // Calculate literal sum of all judge scores across all criteria
+        let literalTotal = 0
+        selectedCriteriaDetails.forEach((criterion) => {
+          const criterionJudgeScores = judgeScores[criterion.id] || {}
+          Object.values(criterionJudgeScores).forEach((score) => {
+            literalTotal += score
+          })
+        })
+
+        const averageScore = literalTotal / (count * (judges?.length || 1))
+        const percentageScore = (literalTotal / (totalMaxScore * (judges?.length || 1))) * 100
 
         calculatedResults.push({
           contestantId,
@@ -282,9 +298,10 @@ export function MinorAwardsCalculator() {
           gender,
           averageScore,
           percentageScore,
-          totalPoints,
+          totalPoints: literalTotal, // Use literal sum instead of average-based total
           rank: 0, // Will be set after sorting
           criteriaAverages,
+          judgeScores,
         })
       }
     })
@@ -529,8 +546,11 @@ export function MinorAwardsCalculator() {
     }
   }
 
-  // Render the results table
+  // Render the results table with individual judge scores
   const renderResultsTable = (resultsToRender: MinorAwardResult[]) => {
+    // Get all judges for column headers
+    const allJudges = judges || []
+    
     return (
       <div className="overflow-x-auto">
         <Table>
@@ -547,52 +567,52 @@ export function MinorAwardsCalculator() {
                   <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
-              <TableHead className="sticky left-[60px] bg-background z-10">Contestant</TableHead>
+              <TableHead className="min-w-[200px] sticky left-[60px] bg-background z-10">Contestant</TableHead>
 
-              {/* Individual Criteria Columns */}
+              {/* Individual Criteria with Judge Columns */}
               {selectedCriteriaDetails.map((criterion) => (
-                <TableHead key={criterion.id} className="text-right">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex items-center p-0 h-auto font-medium ml-auto"
-                          onClick={() => handleSort(`criterion_${criterion.id}`)}
-                        >
-                          {criterion.name.length > 12 ? `${criterion.name.substring(0, 10)}...` : criterion.name}
-                          <ArrowUpDown className="ml-1 h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{criterion.name}</p>
-                        <p className="text-xs text-muted-foreground">From {criterion.segmentName}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableHead>
+                <React.Fragment key={criterion.id}>
+                  {/* Judge columns for this criterion */}
+                  {allJudges.map((judge, index) => (
+                    <TableHead key={`${criterion.id}-${judge.id}`} className="text-center min-w-[60px]">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="text-xs font-medium">
+                              J{index + 1}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{judge.name}</p>
+                            <p className="text-xs text-muted-foreground">{criterion.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                  ))}
+                  
+                </React.Fragment>
               ))}
 
-              {/* Total Points Column */}
-              <TableHead className="text-right">
+              {/* Overall Total Column */}
+              <TableHead className="text-center min-w-[80px] bg-blue-50">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex items-center p-0 h-auto font-medium ml-auto"
+                  className="flex items-center p-0 h-auto font-medium"
                   onClick={() => handleSort("totalPoints")}
                 >
-                  Total
+                  Overall Total
                   <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </TableHead>
 
-              {/* Average Score Column */}
-              <TableHead className="text-right">
+              {/* Overall Average Column */}
+              <TableHead className="text-center min-w-[80px] bg-green-50">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex items-center p-0 h-auto font-medium ml-auto"
+                  className="flex items-center p-0 h-auto font-medium"
                   onClick={() => handleSort("averageScore")}
                 >
                   Avg
@@ -600,12 +620,12 @@ export function MinorAwardsCalculator() {
                 </Button>
               </TableHead>
 
-              {/* Percentage Column */}
-              <TableHead className="text-right">
+              {/* Overall Percentage Column */}
+              <TableHead className="text-center min-w-[80px] bg-purple-50">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex items-center p-0 h-auto font-medium ml-auto"
+                  className="flex items-center p-0 h-auto font-medium"
                   onClick={() => handleSort("percentageScore")}
                 >
                   %
@@ -629,51 +649,61 @@ export function MinorAwardsCalculator() {
                     result.rank
                   )}
                 </TableCell>
-                <TableCell className="sticky left-[60px] bg-background z-10">{result.contestantName}</TableCell>
+                <TableCell className="sticky left-[60px] bg-background z-10 font-medium">
+                  {result.contestantName}
+                </TableCell>
 
-                {/* Individual Criteria Scores */}
+                {/* Individual Criteria with Judge Scores */}
                 {selectedCriteriaDetails.map((criterion) => {
+                  const criterionJudgeScores = result.judgeScores[criterion.id] || {}
                   const criterionScore = result.criteriaAverages[criterion.id]
                   const isTopScore = criterionScore?.rank === 1
 
                   return (
-                    <TableCell key={criterion.id} className="text-right">
-                      <div className="flex items-center justify-end">
-                        {isTopScore && <Star className="h-3 w-3 text-yellow-500 mr-1" />}
-                        {criterionScore ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className={isTopScore ? "font-medium" : ""}>
-                                  {criterionScore.average.toFixed(2)}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{criterion.name}</p>
-                                <p>
-                                  Score: {criterionScore.average.toFixed(2)} / {criterion.maxScore}
-                                </p>
-                                <p>Percentage: {criterionScore.percentage.toFixed(1)}%</p>
-                                <p>Rank: #{criterionScore.rank}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          "N/A"
-                        )}
-                      </div>
-                    </TableCell>
+                    <React.Fragment key={criterion.id}>
+                      {/* Individual judge scores for this criterion */}
+                      {allJudges.map((judge) => {
+                        const judgeScore = criterionJudgeScores[judge.id]
+                        return (
+                          <TableCell key={`${criterion.id}-${judge.id}`} className="text-center text-sm">
+                            {judgeScore !== undefined ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      {judgeScore.toFixed(2)}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{judge.name}</p>
+                                    <p>{criterion.name}</p>
+                                    <p>Score: {judgeScore.toFixed(2)} / {criterion.maxScore}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                        )
+                      })}
+                      
+                    </React.Fragment>
                   )
                 })}
 
-                {/* Total Points */}
-                <TableCell className="text-right font-medium">{result.totalPoints.toFixed(2)}</TableCell>
+                {/* Overall Total */}
+                <TableCell className="text-center font-medium bg-blue-50">
+                  {result.totalPoints.toFixed(2)}
+                </TableCell>
 
-                {/* Average Score */}
-                <TableCell className="text-right">{result.averageScore.toFixed(2)}</TableCell>
+                {/* Overall Average */}
+                <TableCell className="text-center bg-green-50">
+                  {result.averageScore.toFixed(2)}
+                </TableCell>
 
-                {/* Percentage */}
-                <TableCell className="text-right">
+                {/* Overall Percentage */}
+                <TableCell className="text-center bg-purple-50">
                   <Badge variant="outline" className="font-normal">
                     {result.percentageScore.toFixed(1)}%
                   </Badge>

@@ -3,8 +3,9 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react"
 import useCompetitionStore from "@/utils/useCompetitionStore"
 
-export function useOptimizedPolling(competitionId: number | null | undefined, interval = 10000) {
+export function useOptimizedPolling(competitionId: number | null | undefined, interval = 15000) {
   const [isPolling, setIsPolling] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
@@ -144,11 +145,11 @@ export function useOptimizedPolling(competitionId: number | null | undefined, in
       clearTimeout(dataUpdateTimeoutRef.current)
     }
     dataUpdateTimeoutRef.current = setTimeout(() => {
-      if (!isUserScrolling) {
+      if (!isUserScrolling && !isPaused) {
         fetchData()
       }
     }, 1000) // 1 second delay for data updates
-  }, [fetchData, isUserScrolling])
+  }, [fetchData, isUserScrolling, isPaused])
 
   // Start polling
   const startPolling = useCallback(() => {
@@ -270,8 +271,25 @@ export function useOptimizedPolling(competitionId: number | null | undefined, in
     }
   }, [hasChanges])
 
+  // Pause polling
+  const pausePolling = useCallback(() => {
+    setIsPaused(true)
+    console.log("Polling paused")
+  }, [])
+
+  // Resume polling
+  const resumePolling = useCallback(() => {
+    setIsPaused(false)
+    console.log("Polling resumed")
+    // Immediately fetch data when resuming
+    if (competitionId) {
+      fetchData()
+    }
+  }, [competitionId, fetchData])
+
   return {
     isPolling,
+    isPaused,
     lastUpdate,
     error,
     hasChanges,
@@ -279,5 +297,7 @@ export function useOptimizedPolling(competitionId: number | null | undefined, in
     refresh,
     startPolling,
     stopPolling,
+    pausePolling,
+    resumePolling,
   }
 }

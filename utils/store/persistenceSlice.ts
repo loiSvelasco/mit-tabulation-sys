@@ -150,7 +150,19 @@ export const createPersistenceSlice: StateCreator<
       // Convert database format to store format
       const storeScores = dbToStoreScores(scoresData)
 
-      set({ scores: storeScores })
+      // Only update if scores actually changed to prevent unnecessary re-renders
+      const currentState = get()
+      const currentScores = currentState.scores
+      
+      // Deep comparison to check if scores actually changed
+      const scoresChanged = JSON.stringify(currentScores) !== JSON.stringify(storeScores)
+      
+      if (scoresChanged) {
+        console.log("Scores changed, updating store")
+        set({ scores: storeScores })
+      } else {
+        console.log("Scores unchanged, skipping store update")
+      }
     } catch (error) {
       console.error("Error loading scores:", error)
       // Keep existing scores if loading fails
@@ -179,8 +191,16 @@ export const createPersistenceSlice: StateCreator<
       // Convert database format to store format
       const storeScores = dbToStoreScores(scoresData)
 
-      set({ scores: storeScores })
-      console.log("Scores refreshed from database")
+      // Only update if scores actually changed to prevent unnecessary re-renders
+      const currentScores = state.scores
+      const scoresChanged = JSON.stringify(currentScores) !== JSON.stringify(storeScores)
+      
+      if (scoresChanged) {
+        set({ scores: storeScores })
+        console.log("Scores refreshed from database - data changed")
+      } else {
+        console.log("Scores refreshed from database - no changes detected")
+      }
     } catch (error) {
       console.error("Error refreshing scores:", error)
     }
