@@ -101,9 +101,31 @@ export default function JudgeTerminal() {
     })
     .filter((item) => item.segment && item.criterion)
 
-  // Get contestants in the active segments and sort by displayOrder
+  // Get contestants in the current segment being scored and sort by displayOrder
+  // Note: We need to determine the current segment first, then filter contestants
+  const currentSegmentId = selectedContestantId 
+    ? contestants.find((c) => c.id === selectedContestantId)?.currentSegmentId
+    : (() => {
+        // First try: segments with active criteria
+        if (activeSegmentIds.length > 0) {
+          return activeSegmentIds[0]
+        }
+        
+        // Second try: find the segment with the highest index (most recent segment)
+        const segmentsWithContestants = [...new Set(contestants.map(c => c.currentSegmentId))]
+        
+        const segmentWithIndex = segmentsWithContestants
+          .map(segmentId => ({
+            segmentId,
+            index: competitionSettings.segments.findIndex(s => s.id === segmentId)
+          }))
+          .sort((a, b) => b.index - a.index)[0]
+        
+        return segmentWithIndex?.segmentId
+      })()
+  
   const activeContestants = contestants
-    .filter((c) => activeSegmentIds.includes(c.currentSegmentId))
+    .filter((c) => c.currentSegmentId === currentSegmentId)
     .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999))
 
   // Track scores for the current criteria

@@ -328,21 +328,9 @@ export function Results() {
         advancingContestants.forEach((contestant, index) => {
           // Update segment
           updateContestantSegment(contestant.id, nextSegment.id)
-          // Assign display order (1-based) if shuffling
-          if (shuffleNextSegment) {
-            updateContestantDisplayOrder(contestant.id, index + 1)
-          } else {
-            // If not shuffling, use the original index as display order
-            // For males, use their position in the sorted male list
-            if (contestant.gender?.toLowerCase() === "male") {
-              const originalIndex = sortedMaleContestants.findIndex((c) => c.id === contestant.id)
-              updateContestantDisplayOrder(contestant.id, originalIndex + 1)
-            } else {
-              // For females, use their position in the sorted female list
-              const originalIndex = sortedFemaleContestants.findIndex((c) => c.id === contestant.id)
-              updateContestantDisplayOrder(contestant.id, originalIndex + 1)
-            }
-          }
+          
+          // Assign display order (1-based) - always use the combined index for unique ordering
+          updateContestantDisplayOrder(contestant.id, index + 1)
         })
 
         // Save changes to the database
@@ -659,13 +647,7 @@ export function Results() {
                     <Button
                       variant="outline"
                       className="flex items-center gap-2"
-                      // Disable the button if we're in the first segment
-                      disabled={currentSegmentIndex === 0}
-                      title={
-                        currentSegmentIndex === 0
-                          ? "First segment is always in original order"
-                          : "View contestant sequence"
-                      }
+                      title="View contestant sequence"
                     >
                       <Shuffle className="h-4 w-4" />
                       View Contestant Sequence
