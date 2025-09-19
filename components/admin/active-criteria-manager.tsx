@@ -21,28 +21,27 @@ function ActiveCriteriaManager() {
     selectedCompetitionId,
   } = useCompetitionStore()
 
-  // Local state for active criteria that won't be affected by store updates
+  // Local state for active criteria that syncs with store updates
   const [localActiveCriteria, setLocalActiveCriteria] = useState<Array<{ segmentId: string; criterionId: string }>>([])
   const [isOpen, setIsOpen] = useState(false)
-  const [initialized, setInitialized] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Initialize local state from store only once on mount
+  // Sync local state with store whenever store changes
   useEffect(() => {
-    if (!initialized) {
-      // Filter out prejudged and carry-forward criteria from the active criteria list
-      const filteredActiveCriteria = storeActiveCriteria.filter((ac) => {
-        const segment = competitionSettings.segments.find((s) => s.id === ac.segmentId)
-        const criterion = segment?.criteria.find((c) => c.id === ac.criterionId)
-        return !(criterion?.isPrejudged || criterion?.isCarryForward)
-      })
+    // Filter out prejudged and carry-forward criteria from the active criteria list
+    const filteredActiveCriteria = storeActiveCriteria.filter((ac) => {
+      const segment = competitionSettings.segments.find((s) => s.id === ac.segmentId)
+      const criterion = segment?.criteria.find((c) => c.id === ac.criterionId)
+      return !(criterion?.isPrejudged || criterion?.isCarryForward)
+    })
 
-      setLocalActiveCriteria(
-        filteredActiveCriteria.map((ac) => ({ segmentId: ac.segmentId, criterionId: ac.criterionId })),
-      )
-      setInitialized(true)
-    }
-  }, [storeActiveCriteria, initialized, competitionSettings.segments])
+    const newLocalActiveCriteria = filteredActiveCriteria.map((ac) => ({ 
+      segmentId: ac.segmentId, 
+      criterionId: ac.criterionId 
+    }))
+
+    setLocalActiveCriteria(newLocalActiveCriteria)
+  }, [storeActiveCriteria, competitionSettings.segments])
 
   // Check if a criterion is active in our local state
   const isActive = useCallback(
