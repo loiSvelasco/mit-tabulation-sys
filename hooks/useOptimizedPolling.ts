@@ -13,7 +13,7 @@ export function useOptimizedPolling(competitionId: number | null | undefined, in
   const [isUpdating, setIsUpdating] = useState(false)
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const { loadCompetition, scores, contestants, judges } = useCompetitionStore()
+  const { loadCompetition, scores, contestants, judges, activeCriteria } = useCompetitionStore()
   const mountedRef = useRef(true)
   const isRefreshingRef = useRef(false)
   const lastDataHashRef = useRef<string>("")
@@ -26,8 +26,9 @@ export function useOptimizedPolling(competitionId: number | null | undefined, in
     const scoresStr = JSON.stringify(scores)
     const contestantsStr = JSON.stringify(contestants)
     const judgesStr = JSON.stringify(judges)
-    return `${scoresStr}-${contestantsStr}-${judgesStr}`
-  }, [scores, contestants, judges])
+    const activeCriteriaStr = JSON.stringify(activeCriteria)
+    return `${scoresStr}-${contestantsStr}-${judgesStr}-${activeCriteriaStr}`
+  }, [scores, contestants, judges, activeCriteria])
 
   // Function to preserve scroll position
   const preserveScrollPosition = useCallback(() => {

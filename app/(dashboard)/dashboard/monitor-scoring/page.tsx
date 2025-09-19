@@ -269,48 +269,6 @@ export default function MonitorScoring() {
       startPolling()
     }
 
-    // Set up a direct API polling for active criteria
-    const activeCriteriaPollingInterval = setInterval(async () => {
-      if (!competitionId || !isInitialized) return
-
-      try {
-        // Directly fetch competition data from API to get latest active criteria
-        const response = await fetch(`/api/competitions/${competitionId}/data`)
-        if (!response.ok) {
-          console.error("Failed to fetch competition data for active criteria check")
-          return
-        }
-
-        const data = await response.json()
-
-        if (data.activeCriteria) {
-          // Create a string representation of fetched active criteria
-          const fetchedActiveCriteriaString = JSON.stringify(
-            data.activeCriteria.map((ac: any) => `${ac.segmentId}-${ac.criterionId}`).sort(),
-          )
-
-          // Create a string representation of current active criteria
-          const currentActiveCriteriaString = JSON.stringify(
-            activeCriteria.map((ac) => `${ac.segmentId}-${ac.criterionId}`).sort(),
-          )
-
-          // Compare with current active criteria
-          if (fetchedActiveCriteriaString !== currentActiveCriteriaString) {
-            console.log("API polling detected active criteria change!")
-            console.log("Current:", currentActiveCriteriaString)
-            console.log("Fetched:", fetchedActiveCriteriaString)
-
-            // Force a complete reload of the competition to get the latest data
-            await loadCompetition(competitionId)
-
-            // Force update to trigger the updateActiveSegments function
-            setForceUpdate((prev) => prev + 1)
-          }
-        }
-      } catch (error) {
-        console.error("Error in active criteria polling:", error)
-      }
-    }, 5000) // Check every 5 seconds
 
     // Set up a subscription to the store with more detailed logging
     const unsubscribe = useCompetitionStore.subscribe(
@@ -334,27 +292,10 @@ export default function MonitorScoring() {
       },
     )
 
-    // Set up a more frequent check for active criteria changes
-    const activeCriteriaCheckInterval = setInterval(() => {
-      // Create a string representation of current active criteria
-      const activeCriteriaString = JSON.stringify(
-        activeCriteria.map((ac) => `${ac.segmentId}-${ac.criterionId}`).sort(),
-      )
-
-      // Check if active criteria have changed
-      if (previousActiveCriteriaRef.current !== activeCriteriaString) {
-        console.log("Interval check detected active criteria change!")
-        console.log("Previous:", previousActiveCriteriaRef.current)
-        console.log("Current:", activeCriteriaString)
-        setForceUpdate((prev) => prev + 1)
-      }
-    }, 2000) // Check every 2 seconds
 
     return () => {
       stopPolling()
       unsubscribe()
-      clearInterval(activeCriteriaCheckInterval)
-      clearInterval(activeCriteriaPollingInterval)
     }
   }, [initialize, startPolling, stopPolling, isInitialized, competitionId, activeCriteria, loadCompetition])
 
